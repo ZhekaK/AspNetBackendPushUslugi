@@ -433,3 +433,4 @@ FodyWeavers.xsd
 PushPelmesh.Api/appsettings.json
 PushPelmesh.Api/PushPelmesh.Api.http
 PushPelmesh.Api/appsettings.Development.json
+/PushPelmesh.Api/Migrations
