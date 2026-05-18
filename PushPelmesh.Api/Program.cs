@@ -5,6 +5,7 @@ using PushPelmesh.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using PushPelmesh.Api.Tools;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -86,5 +87,6 @@ app.MapRolesEndpoints();
 app.MapXoxiSaveEndpoints();
 app.MapCalendarEndpoints();
 app.MapPushEndpoints();
+app.GenerateKeys();
 
 app.Run();
