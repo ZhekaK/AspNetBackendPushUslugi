@@ -427,3 +427,9 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+/.vscode
+/Html Pages
+/Media
+PushPelmesh.Api/appsettings.json
+PushPelmesh.Api/PushPelmesh.Api.http
+PushPelmesh.Api/appsettings.Development.json
