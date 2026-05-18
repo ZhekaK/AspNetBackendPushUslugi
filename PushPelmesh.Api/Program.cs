@@ -85,5 +85,6 @@ app.MapAdminRolesEndpoints();
 app.MapRolesEndpoints();
 app.MapXoxiSaveEndpoints();
 app.MapCalendarEndpoints();
+app.MapPushEndpoints();
 
 app.Run();
