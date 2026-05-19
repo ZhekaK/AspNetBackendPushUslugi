@@ -32,14 +32,14 @@ public static class PushEndpoints
                 });
             }
 
-            var existing = await db.PushSubscriptions
+            var existing = await db.PushNotificationSubscriptions
                 .FirstOrDefaultAsync(x =>
                     x.UserId == userId &&
                     x.Endpoint == request.Endpoint);
 
             if (existing == null)
             {
-                existing = new PushSubscription
+                existing = new PushNotificationSubscription
                 {
                     UserId = userId,
                     Platform = request.Platform,
@@ -49,7 +49,7 @@ public static class PushEndpoints
                     CreatedAt = DateTime.UtcNow
                 };
 
-                db.PushSubscriptions.Add(existing);
+                db.PushNotificationSubscriptions.Add(existing);
             }
             else
             {
@@ -63,6 +63,44 @@ public static class PushEndpoints
             return Results.Ok(new
             {
                 message = "Push subscription saved"
+            });
+        })
+        .RequireAuthorization();
+
+        app.MapPost("/api/push/unsubscribe", async (
+            SubscribePushRequest request,
+            ClaimsPrincipal claimsUser,
+            AppDbContext db) =>
+        {
+            var userIdText = claimsUser.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!int.TryParse(userIdText, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Endpoint))
+            {
+                return Results.BadRequest(new
+                {
+                    message = "Endpoint is required"
+                });
+            }
+
+            var subscriptions = await db.PushNotificationSubscriptions
+                .Where(x =>
+                    x.UserId == userId &&
+                    x.Endpoint == request.Endpoint)
+                .ToListAsync();
+
+            db.PushNotificationSubscriptions.RemoveRange(subscriptions);
+
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new
+            {
+                message = "Push subscription removed",
+                deleted = subscriptions.Count
             });
         })
         .RequireAuthorization();

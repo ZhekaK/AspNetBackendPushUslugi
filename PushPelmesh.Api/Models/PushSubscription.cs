@@ -7,7 +7,7 @@ public enum PushPlatform
     IOS = 2
 }
 
-public class PushSubscription
+public class PushNotificationSubscription
 {
     public int Id { get; set; }
 

@@ -56,6 +56,8 @@ builder.Services.AddScoped<BirthdayCalendarService>();
 
 builder.Services.AddHostedService<BirthdayCalendarBackgroundService>();
 
+builder.Services.AddScoped<WebPushSenderService>();
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -87,6 +89,7 @@ app.MapRolesEndpoints();
 app.MapXoxiSaveEndpoints();
 app.MapCalendarEndpoints();
 app.MapPushEndpoints();
-app.GenerateKeys();
+app.MapAdminPushEndpoints();
+// app.GenerateKeys();
 
 app.Run();

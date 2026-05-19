@@ -11,7 +11,7 @@ public class AppDbContext : DbContext
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<XoxiSave> XoxiSaves => Set<XoxiSave>();
     public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
-    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
+    public DbSet<PushNotificationSubscription> PushNotificationSubscriptions => Set<PushNotificationSubscription>();
 
     public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options)
