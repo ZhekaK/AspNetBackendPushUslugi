@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using PushPelmesh.Api.Data;
 using PushPelmesh.Api.Endpoints;
 using PushPelmesh.Api.Services;
@@ -9,13 +9,9 @@ using PushPelmesh.Api.Tools;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Добавляем Swagger.
-// Swagger нужен, чтобы тестировать API через браузер.
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Подключаем PostgreSQL через Entity Framework Core.
-// AppDbContext — это наш класс доступа к базе данных.
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.UseNpgsql(
@@ -53,8 +49,10 @@ builder.Services
 builder.Services.AddAuthorization();
 
 builder.Services.AddScoped<BirthdayCalendarService>();
+builder.Services.AddScoped<CalendarEventNotificationService>();
 
 builder.Services.AddHostedService<BirthdayCalendarBackgroundService>();
+builder.Services.AddHostedService<CalendarEventNotificationBackgroundService>();
 
 builder.Services.AddScoped<WebPushSenderService>();
 
@@ -71,7 +69,6 @@ app.UseAuthentication();
 
 app.UseAuthorization();
 
-// В режиме разработки включаем Swagger.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -93,3 +90,4 @@ app.MapAdminPushEndpoints();
 // app.GenerateKeys();
 
 app.Run();
+

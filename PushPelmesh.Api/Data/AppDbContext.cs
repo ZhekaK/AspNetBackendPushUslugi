@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using PushPelmesh.Api.Models;
 
 namespace PushPelmesh.Api.Data;
@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<XoxiSave> XoxiSaves => Set<XoxiSave>();
     public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
+    public DbSet<CalendarEventNotification> CalendarEventNotifications => Set<CalendarEventNotification>();
     public DbSet<PushNotificationSubscription> PushNotificationSubscriptions => Set<PushNotificationSubscription>();
 
     public AppDbContext(DbContextOptions<AppDbContext> options)
@@ -46,5 +47,23 @@ public class AppDbContext : DbContext
                 .HasForeignKey<XoxiSave>(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+
+        modelBuilder.Entity<CalendarEventNotification>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.HasIndex(x => new
+                {
+                    x.CalendarEventId,
+                    x.SentForDate
+                })
+                .IsUnique();
+
+            entity.HasOne(x => x.CalendarEvent)
+                .WithMany()
+                .HasForeignKey(x => x.CalendarEventId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
     }
 }
+
