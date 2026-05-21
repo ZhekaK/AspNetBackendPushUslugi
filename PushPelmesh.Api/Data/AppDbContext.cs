@@ -133,6 +133,8 @@ public class AppDbContext : DbContext
 
             entity.HasIndex(x => x.Kind);
 
+            entity.HasIndex(x => x.Date);
+
             entity.Property(x => x.FullName)
                 .HasMaxLength(256)
                 .IsRequired();
@@ -174,5 +176,6 @@ public class AppDbContext : DbContext
         });
     }
 }
+
 
 

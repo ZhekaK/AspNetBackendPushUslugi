@@ -88,6 +88,7 @@ public static class RewardEndpoints
                 EventType = string.IsNullOrWhiteSpace(request.EventType) ? null : request.EventType.Trim(),
                 EventName = request.EventName.Trim(),
                 Place = string.IsNullOrWhiteSpace(request.Place) ? null : request.Place.Trim(),
+                Date = request.Date ?? DateOnly.FromDateTime(DateTime.UtcNow),
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -102,7 +103,7 @@ public static class RewardEndpoints
     {
         return db.RewardRecords
             .Where(x => x.Kind == kind)
-            .OrderByDescending(x => x.CreatedAt)
+            .OrderByDescending(x => x.Date)
             .ThenByDescending(x => x.Id)
             .Select(x => new RewardRecordDto
             {
@@ -113,6 +114,7 @@ public static class RewardEndpoints
                 EventType = x.EventType,
                 EventName = x.EventName,
                 Place = x.Place,
+                Date = x.Date,
                 CreatedAt = x.CreatedAt
             })
             .ToListAsync();
@@ -129,6 +131,7 @@ public static class RewardEndpoints
             EventType = reward.EventType,
             EventName = reward.EventName,
             Place = reward.Place,
+            Date = reward.Date,
             CreatedAt = reward.CreatedAt
         };
     }

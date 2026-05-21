@@ -17,4 +17,6 @@ public class CreateRewardRecordRequest
     public string EventName { get; set; } = "";
 
     public string? Place { get; set; }
+
+    public DateOnly? Date { get; set; }
 }
