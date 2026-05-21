@@ -28,11 +28,7 @@ public class CalendarEventNotificationService
         var today = DateOnly.FromDateTime(CalendarNotificationTime.GetMoscowNow().DateTime);
 
         var calendarEvents = await _db.CalendarEvents
-            .Where(calendarEvent =>
-                calendarEvent.Date == today &&
-                !_db.CalendarEventNotifications.Any(notification =>
-                    notification.CalendarEventId == calendarEvent.Id &&
-                    notification.SentForDate == today))
+            .Where(calendarEvent => calendarEvent.Date == today)
             .OrderBy(calendarEvent => calendarEvent.Id)
             .ToListAsync(cancellationToken);
 
@@ -52,31 +48,61 @@ public class CalendarEventNotificationService
 
         foreach (var calendarEvent in calendarEvents)
         {
+            var deliveredSubscriptionIds = await _db.CalendarEventPushDeliveries
+                .Where(delivery =>
+                    delivery.CalendarEventId == calendarEvent.Id &&
+                    delivery.SentForDate == today)
+                .Select(delivery => delivery.PushNotificationSubscriptionId)
+                .ToListAsync(cancellationToken);
+
+            var delivered = deliveredSubscriptionIds.ToHashSet();
+            int pendingBeforeSend = 0;
+            int failedForEvent = 0;
+
             foreach (var subscription in subscriptions)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                if (delivered.Contains(subscription.Id))
+                    continue;
+
+                pendingBeforeSend++;
+
                 bool success = await _pushSender.SendAsync(
                     subscription,
-                    calendarEvent.Type == CalendarEventType.Birthday ? $"Сегодня день рождения: {calendarEvent.Title}!" : calendarEvent.Title,
+                    calendarEvent.Type == CalendarEventType.Birthday ? $"Сегодня день рождения: {calendarEvent.Title}!" : $"Сегодня {calendarEvent.Title}",
                     GetNotificationBody(calendarEvent),
                     "/");
 
                 if (success)
+                {
                     sent++;
+                    delivered.Add(subscription.Id);
+
+                    _db.CalendarEventPushDeliveries.Add(new CalendarEventPushDelivery
+                    {
+                        CalendarEventId = calendarEvent.Id,
+                        PushNotificationSubscriptionId = subscription.Id,
+                        SentForDate = today,
+                        SentAt = DateTime.UtcNow
+                    });
+                }
                 else
+                {
                     failed++;
+                    failedForEvent++;
+                }
             }
 
-            _db.CalendarEventNotifications.Add(new CalendarEventNotification
-            {
-                CalendarEventId = calendarEvent.Id,
-                SentForDate = today,
-                SentAt = DateTime.UtcNow
-            });
+            if (subscriptions.Count > 0 && failedForEvent == 0 && delivered.Count >= subscriptions.Count)
+                AddCompletionLogIfNeeded(calendarEvent.Id, today);
+
+            if (pendingBeforeSend > 0 || subscriptions.Count == 0)
+                await _db.SaveChangesAsync(cancellationToken);
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
+        if (moduleNotifications > 0)
+            await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
             "Calendar event notifications completed. Events: {Events}, ModuleNotifications: {ModuleNotifications}, Subscriptions: {Subscriptions}, Sent: {Sent}, Failed: {Failed}",
@@ -92,6 +118,23 @@ public class CalendarEventNotificationService
             sent,
             failed,
             moduleNotifications);
+    }
+
+    private void AddCompletionLogIfNeeded(int calendarEventId, DateOnly sentForDate)
+    {
+        bool alreadyCompleted = _db.CalendarEventNotifications.Any(notification =>
+            notification.CalendarEventId == calendarEventId &&
+            notification.SentForDate == sentForDate);
+
+        if (alreadyCompleted)
+            return;
+
+        _db.CalendarEventNotifications.Add(new CalendarEventNotification
+        {
+            CalendarEventId = calendarEventId,
+            SentForDate = sentForDate,
+            SentAt = DateTime.UtcNow
+        });
     }
 
     private async Task<int> CreateModuleNotificationsAsync(
@@ -159,3 +202,4 @@ public record CalendarEventNotificationResult(
     int Sent,
     int Failed,
     int ModuleNotifications);
+

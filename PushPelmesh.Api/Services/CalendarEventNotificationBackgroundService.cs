@@ -15,19 +15,21 @@ public class CalendarEventNotificationBackgroundService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (CalendarNotificationTime.HasReachedDailySendTime(DateTimeOffset.UtcNow))
+        if (CalendarNotificationTime.IsWithinRetryWindow(DateTimeOffset.UtcNow))
             await RunSendAsync(stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            var delay = CalendarNotificationTime.GetDelayUntilNextDailySend(DateTimeOffset.UtcNow);
+            var delay = CalendarNotificationTime.GetDelayUntilNextRetry(DateTimeOffset.UtcNow);
 
             _logger.LogInformation(
-                "Next calendar event push notification check in {Delay}",
+                "Next calendar event notification retry check in {Delay}",
                 delay);
 
             await Task.Delay(delay, stoppingToken);
-            await RunSendAsync(stoppingToken);
+
+            if (CalendarNotificationTime.IsWithinRetryWindow(DateTimeOffset.UtcNow))
+                await RunSendAsync(stoppingToken);
         }
     }
 
@@ -43,11 +45,12 @@ public class CalendarEventNotificationBackgroundService : BackgroundService
             var result = await service.SendTodayNotificationsAsync(stoppingToken);
 
             _logger.LogInformation(
-                "Calendar event push notification check finished. Events: {Events}, Subscriptions: {Subscriptions}, Sent: {Sent}, Failed: {Failed}",
+                "Calendar event notification check finished. Events: {Events}, Subscriptions: {Subscriptions}, Sent: {Sent}, Failed: {Failed}, ModuleNotifications: {ModuleNotifications}",
                 result.Events,
                 result.Subscriptions,
                 result.Sent,
-                result.Failed);
+                result.Failed,
+                result.ModuleNotifications);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -56,7 +59,7 @@ public class CalendarEventNotificationBackgroundService : BackgroundService
         {
             _logger.LogError(
                 exception,
-                "Calendar event push notification check failed");
+                "Calendar event notification check failed");
         }
     }
 }

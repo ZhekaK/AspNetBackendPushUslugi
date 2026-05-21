@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<XoxiSave> XoxiSaves => Set<XoxiSave>();
     public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
     public DbSet<CalendarEventNotification> CalendarEventNotifications => Set<CalendarEventNotification>();
+    public DbSet<CalendarEventPushDelivery> CalendarEventPushDeliveries => Set<CalendarEventPushDelivery>();
     public DbSet<PushNotificationSubscription> PushNotificationSubscriptions => Set<PushNotificationSubscription>();
     public DbSet<UserModuleNotification> UserModuleNotifications => Set<UserModuleNotification>();
     public DbSet<RewardRecord> RewardRecords => Set<RewardRecord>();
@@ -68,6 +69,29 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+
+        modelBuilder.Entity<CalendarEventPushDelivery>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.HasIndex(x => new
+                {
+                    x.CalendarEventId,
+                    x.PushNotificationSubscriptionId,
+                    x.SentForDate
+                })
+                .IsUnique();
+
+            entity.HasOne(x => x.CalendarEvent)
+                .WithMany()
+                .HasForeignKey(x => x.CalendarEventId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.PushNotificationSubscription)
+                .WithMany()
+                .HasForeignKey(x => x.PushNotificationSubscriptionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
         modelBuilder.Entity<UserModuleNotification>(entity =>
         {
             entity.HasKey(x => x.Id);
@@ -150,3 +174,5 @@ public class AppDbContext : DbContext
         });
     }
 }
+
+
