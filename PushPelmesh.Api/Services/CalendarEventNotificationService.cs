@@ -6,6 +6,8 @@ namespace PushPelmesh.Api.Services;
 
 public class CalendarEventNotificationService
 {
+    private const string CalendarModuleKey = "CalendarScene";
+
     private readonly AppDbContext _db;
     private readonly WebPushSenderService _pushSender;
     private readonly ILogger<CalendarEventNotificationService> _logger;
@@ -36,8 +38,10 @@ public class CalendarEventNotificationService
 
         if (calendarEvents.Count == 0)
         {
-            return new CalendarEventNotificationResult(0, 0, 0, 0);
+            return new CalendarEventNotificationResult(0, 0, 0, 0, 0);
         }
+
+        int moduleNotifications = await CreateModuleNotificationsAsync(calendarEvents, today, cancellationToken);
 
         var subscriptions = await _db.PushNotificationSubscriptions
             .Where(subscription => subscription.Platform == PushPlatform.Web)
@@ -75,8 +79,9 @@ public class CalendarEventNotificationService
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
-            "Calendar event push notifications completed. Events: {Events}, Subscriptions: {Subscriptions}, Sent: {Sent}, Failed: {Failed}",
+            "Calendar event notifications completed. Events: {Events}, ModuleNotifications: {ModuleNotifications}, Subscriptions: {Subscriptions}, Sent: {Sent}, Failed: {Failed}",
             calendarEvents.Count,
+            moduleNotifications,
             subscriptions.Count,
             sent,
             failed);
@@ -85,7 +90,58 @@ public class CalendarEventNotificationService
             calendarEvents.Count,
             subscriptions.Count,
             sent,
-            failed);
+            failed,
+            moduleNotifications);
+    }
+
+    private async Task<int> CreateModuleNotificationsAsync(
+        List<CalendarEvent> calendarEvents,
+        DateOnly today,
+        CancellationToken cancellationToken)
+    {
+        var userIds = await _db.Users
+            .Where(user => user.Type != UserType.Guest)
+            .Select(user => user.Id)
+            .ToListAsync(cancellationToken);
+
+        if (userIds.Count == 0)
+            return 0;
+
+        int created = 0;
+        var now = DateTime.UtcNow;
+
+        foreach (var calendarEvent in calendarEvents)
+        {
+            var sourceKey = $"calendar:{calendarEvent.Id}:{today:yyyy-MM-dd}";
+
+            var existingUserIds = await _db.UserModuleNotifications
+                .Where(notification =>
+                    notification.ModuleKey == CalendarModuleKey &&
+                    notification.SourceKey == sourceKey)
+                .Select(notification => notification.UserId)
+                .ToListAsync(cancellationToken);
+
+            var existing = existingUserIds.ToHashSet();
+
+            foreach (int userId in userIds)
+            {
+                if (existing.Contains(userId))
+                    continue;
+
+                _db.UserModuleNotifications.Add(new UserModuleNotification
+                {
+                    UserId = userId,
+                    ModuleKey = CalendarModuleKey,
+                    SourceKey = sourceKey,
+                    Title = calendarEvent.Title,
+                    CreatedAt = now
+                });
+
+                created++;
+            }
+        }
+
+        return created;
     }
 
     private static string GetNotificationBody(CalendarEvent calendarEvent)
@@ -101,4 +157,5 @@ public record CalendarEventNotificationResult(
     int Events,
     int Subscriptions,
     int Sent,
-    int Failed);
+    int Failed,
+    int ModuleNotifications);

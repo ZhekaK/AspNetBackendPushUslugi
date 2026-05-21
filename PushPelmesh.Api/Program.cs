@@ -85,9 +85,13 @@ app.MapAdminRolesEndpoints();
 app.MapRolesEndpoints();
 app.MapXoxiSaveEndpoints();
 app.MapCalendarEndpoints();
+app.MapModuleNotificationEndpoints();
+app.MapRewardEndpoints();
+app.MapCinemaEndpoints();
 app.MapPushEndpoints();
 app.MapAdminPushEndpoints();
 // app.GenerateKeys();
 
 app.Run();
+
 

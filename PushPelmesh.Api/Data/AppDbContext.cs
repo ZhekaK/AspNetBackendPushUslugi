@@ -13,6 +13,9 @@ public class AppDbContext : DbContext
     public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
     public DbSet<CalendarEventNotification> CalendarEventNotifications => Set<CalendarEventNotification>();
     public DbSet<PushNotificationSubscription> PushNotificationSubscriptions => Set<PushNotificationSubscription>();
+    public DbSet<UserModuleNotification> UserModuleNotifications => Set<UserModuleNotification>();
+    public DbSet<RewardRecord> RewardRecords => Set<RewardRecord>();
+    public DbSet<CinemaMovieRating> CinemaMovieRatings => Set<CinemaMovieRating>();
 
     public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options)
@@ -64,6 +67,86 @@ public class AppDbContext : DbContext
                 .HasForeignKey(x => x.CalendarEventId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+
+        modelBuilder.Entity<UserModuleNotification>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.HasIndex(x => new
+                {
+                    x.UserId,
+                    x.ModuleKey,
+                    x.SourceKey
+                })
+                .IsUnique();
+
+            entity.HasIndex(x => new
+            {
+                x.UserId,
+                x.ReadAt
+            });
+
+            entity.Property(x => x.ModuleKey)
+                .HasMaxLength(128)
+                .IsRequired();
+
+            entity.Property(x => x.SourceKey)
+                .HasMaxLength(256)
+                .IsRequired();
+
+            entity.Property(x => x.Title)
+                .HasMaxLength(256);
+
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RewardRecord>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.HasIndex(x => x.Kind);
+
+            entity.Property(x => x.FullName)
+                .HasMaxLength(256)
+                .IsRequired();
+
+            entity.Property(x => x.EventType)
+                .HasMaxLength(128);
+
+            entity.Property(x => x.EventName)
+                .HasMaxLength(256)
+                .IsRequired();
+
+            entity.Property(x => x.Place)
+                .HasMaxLength(128);
+
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<CinemaMovieRating>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.Title)
+                .HasMaxLength(256)
+                .IsRequired();
+
+            entity.Property(x => x.Rating)
+                .HasPrecision(4, 2);
+
+            entity.Property(x => x.Url)
+                .HasMaxLength(1024);
+
+            entity.HasOne(x => x.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.CreatedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
     }
 }
-
