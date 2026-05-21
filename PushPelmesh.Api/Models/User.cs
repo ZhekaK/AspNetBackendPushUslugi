@@ -1,4 +1,4 @@
-namespace PushPelmesh.Api.Models;
+﻿namespace PushPelmesh.Api.Models;
 
 public enum UserType
 {
@@ -32,6 +32,4 @@ public class User
     public DateTime? LastLoginAt { get; set; }
 
     public float? WeightKg { get; set; }
-
-    public UserPost? Role { get; set; }
 }

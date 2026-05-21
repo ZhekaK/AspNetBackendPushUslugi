@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using PushPelmesh.Api.Data;
 using PushPelmesh.Api.Dtos;
@@ -160,9 +160,16 @@ public static class CalendarEndpoints
                 });
             }
 
+            var userRoles = await db.UserRoles
+                .Where(x => x.UserSeries == user.UserSeries && x.UserNumbers == user.UserNumber)
+                .ToListAsync();
+
+            bool isPresident = userRoles.Any(x => x.Post == UserPost.President);
+
             bool canDelete =
                 calendarEvent.CreatedByUserId == user.Id ||
-                user.Type == UserType.Admin || user.Role == UserPost.President;
+                user.Type == UserType.Admin ||
+                isPresident;
 
             if (!canDelete)
             {
@@ -227,7 +234,7 @@ public static class CalendarEndpoints
                 {
                     Type = CalendarEventType.Birthday,
                     Title = $"{user.FirstName}",
-                    Description = $"У {fullName} сегодня день рождения! Дата рождения: {user.BirthDate.Value:yyyy-MM-dd}",
+                    Description = $"РЈ {fullName} СЃРµРіРѕРґРЅСЏ РґРµРЅСЊ СЂРѕР¶РґРµРЅРёСЏ! Р”Р°С‚Р° СЂРѕР¶РґРµРЅРёСЏ: {user.BirthDate.Value:yyyy-MM-dd}",
                     Date = nextBirthdayDate,
                     CreatedByUserId = user.Id,
                     IsSystemEvent = true,
@@ -310,3 +317,4 @@ public static class CalendarEndpoints
             birthDate.Day);
     }
 }
+

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using PushPelmesh.Api.Data;
 using PushPelmesh.Api.Dtos;
 using PushPelmesh.Api.Models;
@@ -137,7 +137,6 @@ namespace PushPelmesh.Api.Endpoints
                 };
 
                 db.UserRoles.Add(userRole);
-                user.Role = userRole.Post;
                 await db.SaveChangesAsync();
 
                 return Results.Ok(new
@@ -248,3 +247,4 @@ namespace PushPelmesh.Api.Endpoints
         }
     }
 }
+

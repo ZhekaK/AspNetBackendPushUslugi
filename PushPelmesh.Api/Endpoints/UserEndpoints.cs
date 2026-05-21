@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using PushPelmesh.Api.Data;
 using PushPelmesh.Api.Dtos;
@@ -50,6 +50,9 @@ public static class UserEndpoints
                     message = "User not found"
                 });
             }
+
+            user.LastLoginAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
 
             return Results.Ok(new
             {
@@ -124,3 +127,4 @@ public static class UserEndpoints
         .RequireAuthorization();
     }
 }
+
