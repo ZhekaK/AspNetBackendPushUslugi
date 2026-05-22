@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using PushPelmesh.Api.Data;
 using PushPelmesh.Api.Endpoints;
 using PushPelmesh.Api.Services;
@@ -88,6 +88,7 @@ app.MapCalendarEndpoints();
 app.MapModuleNotificationEndpoints();
 app.MapRewardEndpoints();
 app.MapCinemaEndpoints();
+app.MapVoteEndpoints();
 app.MapPushEndpoints();
 app.MapAdminPushEndpoints();
 // app.GenerateKeys();

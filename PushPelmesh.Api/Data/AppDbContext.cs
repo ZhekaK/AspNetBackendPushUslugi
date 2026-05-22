@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using PushPelmesh.Api.Models;
 
 namespace PushPelmesh.Api.Data;
@@ -17,6 +17,9 @@ public class AppDbContext : DbContext
     public DbSet<UserModuleNotification> UserModuleNotifications => Set<UserModuleNotification>();
     public DbSet<RewardRecord> RewardRecords => Set<RewardRecord>();
     public DbSet<CinemaMovieRating> CinemaMovieRatings => Set<CinemaMovieRating>();
+    public DbSet<VotePoll> VotePolls => Set<VotePoll>();
+    public DbSet<VoteOption> VoteOptions => Set<VoteOption>();
+    public DbSet<VoteBallot> VoteBallots => Set<VoteBallot>();
 
     public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options)
@@ -153,6 +156,77 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<VotePoll>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.HasIndex(x => x.EndDate);
+            entity.HasIndex(x => x.AudienceGroups);
+
+            entity.Property(x => x.Title)
+                .HasMaxLength(256)
+                .IsRequired();
+
+            entity.Property(x => x.Description)
+                .HasMaxLength(2048);
+
+            entity.Property(x => x.CreatedByUserName)
+                .HasMaxLength(256)
+                .IsRequired();
+
+            entity.HasOne(x => x.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<VoteOption>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.HasIndex(x => new
+                {
+                    x.VotePollId,
+                    x.SortOrder
+                });
+
+            entity.Property(x => x.Text)
+                .HasMaxLength(256)
+                .IsRequired();
+
+            entity.HasOne(x => x.VotePoll)
+                .WithMany(x => x.Options)
+                .HasForeignKey(x => x.VotePollId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<VoteBallot>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.HasIndex(x => new
+                {
+                    x.VotePollId,
+                    x.UserId
+                })
+                .IsUnique();
+
+            entity.HasOne(x => x.VotePoll)
+                .WithMany(x => x.Ballots)
+                .HasForeignKey(x => x.VotePollId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.VoteOption)
+                .WithMany(x => x.Ballots)
+                .HasForeignKey(x => x.VoteOptionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<CinemaMovieRating>(entity =>
