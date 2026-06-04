@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using PushPelmesh.Api.Models;
 
 namespace PushPelmesh.Api.Data;
@@ -209,7 +209,8 @@ public class AppDbContext : DbContext
             entity.HasIndex(x => new
                 {
                     x.VotePollId,
-                    x.UserId
+                    x.UserId,
+                    x.VoteOptionId
                 })
                 .IsUnique();
 

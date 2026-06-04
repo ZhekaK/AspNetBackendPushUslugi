@@ -25,19 +25,30 @@ public class CalendarEventNotificationService
     public async Task<CalendarEventNotificationResult> SendTodayNotificationsAsync(
         CancellationToken cancellationToken = default)
     {
-        var today = DateOnly.FromDateTime(CalendarNotificationTime.GetMoscowNow().DateTime);
+        var notificationDate = DateOnly.FromDateTime(CalendarNotificationTime.GetMoscowNow().DateTime);
+        var tomorrow = notificationDate.AddDays(1);
 
         var calendarEvents = await _db.CalendarEvents
-            .Where(calendarEvent => calendarEvent.Date == today)
-            .OrderBy(calendarEvent => calendarEvent.Id)
+            .Where(calendarEvent =>
+                calendarEvent.Date == notificationDate ||
+                calendarEvent.Date == tomorrow)
+            .OrderBy(calendarEvent => calendarEvent.Date)
+            .ThenBy(calendarEvent => calendarEvent.Id)
             .ToListAsync(cancellationToken);
 
-        if (calendarEvents.Count == 0)
+        var notificationJobs = calendarEvents
+            .Select(calendarEvent => new CalendarNotificationJob(
+                calendarEvent,
+                notificationDate,
+                calendarEvent.Date == tomorrow))
+            .ToList();
+
+        if (notificationJobs.Count == 0)
         {
             return new CalendarEventNotificationResult(0, 0, 0, 0, 0);
         }
 
-        int moduleNotifications = await CreateModuleNotificationsAsync(calendarEvents, today, cancellationToken);
+        int moduleNotifications = await CreateModuleNotificationsAsync(notificationJobs, cancellationToken);
 
         var subscriptions = await _db.PushNotificationSubscriptions
             .Where(subscription => subscription.Platform == PushPlatform.Web)
@@ -46,12 +57,14 @@ public class CalendarEventNotificationService
         int sent = 0;
         int failed = 0;
 
-        foreach (var calendarEvent in calendarEvents)
+        foreach (var notificationJob in notificationJobs)
         {
+            var calendarEvent = notificationJob.CalendarEvent;
+
             var deliveredSubscriptionIds = await _db.CalendarEventPushDeliveries
                 .Where(delivery =>
                     delivery.CalendarEventId == calendarEvent.Id &&
-                    delivery.SentForDate == today)
+                    delivery.SentForDate == notificationJob.NotificationDate)
                 .Select(delivery => delivery.PushNotificationSubscriptionId)
                 .ToListAsync(cancellationToken);
 
@@ -70,8 +83,8 @@ public class CalendarEventNotificationService
 
                 bool success = await _pushSender.SendAsync(
                     subscription,
-                    calendarEvent.Type == CalendarEventType.Birthday ? $"Сегодня день рождения: {calendarEvent.Title}!" : $"Сегодня {calendarEvent.Title}",
-                    GetNotificationBody(calendarEvent),
+                    GetNotificationTitle(notificationJob),
+                    GetNotificationBody(notificationJob),
                     "/");
 
                 if (success)
@@ -83,7 +96,7 @@ public class CalendarEventNotificationService
                     {
                         CalendarEventId = calendarEvent.Id,
                         PushNotificationSubscriptionId = subscription.Id,
-                        SentForDate = today,
+                        SentForDate = notificationJob.NotificationDate,
                         SentAt = DateTime.UtcNow
                     });
                 }
@@ -95,7 +108,7 @@ public class CalendarEventNotificationService
             }
 
             if (subscriptions.Count > 0 && failedForEvent == 0 && delivered.Count >= subscriptions.Count)
-                AddCompletionLogIfNeeded(calendarEvent.Id, today);
+                AddCompletionLogIfNeeded(calendarEvent.Id, notificationJob.NotificationDate);
 
             if (pendingBeforeSend > 0 || subscriptions.Count == 0)
                 await _db.SaveChangesAsync(cancellationToken);
@@ -106,14 +119,14 @@ public class CalendarEventNotificationService
 
         _logger.LogInformation(
             "Calendar event notifications completed. Events: {Events}, ModuleNotifications: {ModuleNotifications}, Subscriptions: {Subscriptions}, Sent: {Sent}, Failed: {Failed}",
-            calendarEvents.Count,
+            notificationJobs.Count,
             moduleNotifications,
             subscriptions.Count,
             sent,
             failed);
 
         return new CalendarEventNotificationResult(
-            calendarEvents.Count,
+            notificationJobs.Count,
             subscriptions.Count,
             sent,
             failed,
@@ -138,8 +151,7 @@ public class CalendarEventNotificationService
     }
 
     private async Task<int> CreateModuleNotificationsAsync(
-        List<CalendarEvent> calendarEvents,
-        DateOnly today,
+        List<CalendarNotificationJob> notificationJobs,
         CancellationToken cancellationToken)
     {
         var userIds = await _db.Users
@@ -153,9 +165,9 @@ public class CalendarEventNotificationService
         int created = 0;
         var now = DateTime.UtcNow;
 
-        foreach (var calendarEvent in calendarEvents)
+        foreach (var notificationJob in notificationJobs)
         {
-            var sourceKey = $"calendar:{calendarEvent.Id}:{today:yyyy-MM-dd}";
+            var sourceKey = GetModuleNotificationSourceKey(notificationJob);
 
             var existingUserIds = await _db.UserModuleNotifications
                 .Where(notification =>
@@ -176,7 +188,7 @@ public class CalendarEventNotificationService
                     UserId = userId,
                     ModuleKey = CalendarModuleKey,
                     SourceKey = sourceKey,
-                    Title = calendarEvent.Title,
+                    Title = GetNotificationTitle(notificationJob),
                     CreatedAt = now
                 });
 
@@ -187,13 +199,42 @@ public class CalendarEventNotificationService
         return created;
     }
 
-    private static string GetNotificationBody(CalendarEvent calendarEvent)
+    private static string GetModuleNotificationSourceKey(CalendarNotificationJob notificationJob)
     {
-        if (!string.IsNullOrWhiteSpace(calendarEvent.Description))
-            return calendarEvent.Description;
-
-        return "Сегодня событие в календаре!";
+        var suffix = notificationJob.IsDayBefore ? ":day-before" : string.Empty;
+        return $"calendar:{notificationJob.CalendarEvent.Id}:{notificationJob.NotificationDate:yyyy-MM-dd}{suffix}";
     }
+
+    private static string GetNotificationTitle(CalendarNotificationJob notificationJob)
+    {
+        var calendarEvent = notificationJob.CalendarEvent;
+
+        if (notificationJob.IsDayBefore)
+        {
+            return calendarEvent.Type == CalendarEventType.Birthday
+                ? $"Завтра день рождения: {calendarEvent.Title}!"
+                : $"Завтра {calendarEvent.Title}";
+        }
+
+        return calendarEvent.Type == CalendarEventType.Birthday
+            ? $"Сегодня день рождения: {calendarEvent.Title}!"
+            : $"Сегодня {calendarEvent.Title}";
+    }
+
+    private static string GetNotificationBody(CalendarNotificationJob notificationJob)
+    {
+        if (!string.IsNullOrWhiteSpace(notificationJob.CalendarEvent.Description))
+            return notificationJob.CalendarEvent.Description;
+
+        return notificationJob.IsDayBefore
+            ? "Завтра событие в календаре!"
+            : "Сегодня событие в календаре!";
+    }
+
+    private sealed record CalendarNotificationJob(
+        CalendarEvent CalendarEvent,
+        DateOnly NotificationDate,
+        bool IsDayBefore);
 }
 
 public record CalendarEventNotificationResult(
@@ -202,4 +243,3 @@ public record CalendarEventNotificationResult(
     int Sent,
     int Failed,
     int ModuleNotifications);
-

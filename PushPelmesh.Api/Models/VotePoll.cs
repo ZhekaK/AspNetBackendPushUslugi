@@ -1,4 +1,4 @@
-namespace PushPelmesh.Api.Models;
+﻿namespace PushPelmesh.Api.Models;
 
 [Flags]
 public enum VoteAudienceGroup
@@ -13,6 +13,7 @@ public class VotePoll
     public string Title { get; set; } = "";
     public string Description { get; set; } = "";
     public DateOnly EndDate { get; set; }
+    public bool IsMultipleChoice { get; set; }
     public VoteAudienceGroup AudienceGroups { get; set; }
     public int CreatedByUserId { get; set; }
     public User CreatedByUser { get; set; } = null!;

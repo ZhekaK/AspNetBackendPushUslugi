@@ -455,7 +455,7 @@ namespace PushPelmesh.Api.Migrations
 
                     b.HasIndex("VoteOptionId");
 
-                    b.HasIndex("VotePollId", "UserId")
+                    b.HasIndex("VotePollId", "UserId", "VoteOptionId")
                         .IsUnique();
 
                     b.ToTable("VoteBallots");
@@ -516,6 +516,9 @@ namespace PushPelmesh.Api.Migrations
 
                     b.Property<DateOnly>("EndDate")
                         .HasColumnType("date");
+
+                    b.Property<bool>("IsMultipleChoice")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Title")
                         .IsRequired()

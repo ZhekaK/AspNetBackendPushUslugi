@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using PushPelmesh.Api.Data;
 using PushPelmesh.Api.Dtos.Voting;
@@ -129,6 +129,7 @@ public static class VoteEndpoints
                 Title = request.Title.Trim(),
                 Description = request.Description?.Trim() ?? "",
                 EndDate = request.EndDate,
+                IsMultipleChoice = request.IsMultipleChoice || request.AllowMultipleChoices,
                 AudienceGroups = audienceGroups,
                 CreatedByUserId = context.User.Id,
                 CreatedByUserName = BuildFullName(context.User),
@@ -197,9 +198,29 @@ public static class VoteEndpoints
                 });
             }
 
-            var option = poll.Options.FirstOrDefault(x => x.Id == request.OptionId);
+            var selectedOptionIds = NormalizeVoteOptionIds(request);
 
-            if (option == null)
+            if (selectedOptionIds.Count == 0)
+            {
+                return Results.BadRequest(new
+                {
+                    message = "Option is required"
+                });
+            }
+
+            if (!poll.IsMultipleChoice && selectedOptionIds.Count > 1)
+            {
+                return Results.BadRequest(new
+                {
+                    message = "Only one option can be selected"
+                });
+            }
+
+            var pollOptionIds = poll.Options
+                .Select(x => x.Id)
+                .ToHashSet();
+
+            if (selectedOptionIds.Any(optionId => !pollOptionIds.Contains(optionId)))
             {
                 return Results.BadRequest(new
                 {
@@ -207,13 +228,18 @@ public static class VoteEndpoints
                 });
             }
 
-            db.VoteBallots.Add(new VoteBallot
+            var createdAt = DateTime.UtcNow;
+
+            foreach (int optionId in selectedOptionIds)
             {
-                VotePollId = poll.Id,
-                VoteOptionId = option.Id,
-                UserId = context.User.Id,
-                CreatedAt = DateTime.UtcNow
-            });
+                db.VoteBallots.Add(new VoteBallot
+                {
+                    VotePollId = poll.Id,
+                    VoteOptionId = optionId,
+                    UserId = context.User.Id,
+                    CreatedAt = createdAt
+                });
+            }
 
             await db.SaveChangesAsync();
 
@@ -238,11 +264,13 @@ public static class VoteEndpoints
 
     private static VotePollDto ToDto(VotePoll poll, VoteUserContext context)
     {
-        int selectedOptionId = poll.Ballots
+        var selectedOptionIds = poll.Ballots
             .Where(x => x.UserId == context.User.Id)
             .Select(x => x.VoteOptionId)
-            .FirstOrDefault();
+            .Distinct()
+            .ToList();
 
+        int selectedOptionId = selectedOptionIds.FirstOrDefault();
         int totalVotes = poll.Ballots.Count;
 
         return new VotePollDto
@@ -254,9 +282,12 @@ public static class VoteEndpoints
             CreatedByUser = poll.CreatedByUserName,
             CreatedAt = poll.CreatedAt,
             IsClosed = IsClosed(poll),
-            HasVoted = selectedOptionId > 0,
-            CanVote = CanAccessPoll(context, poll) && !IsClosed(poll) && selectedOptionId == 0,
+            HasVoted = selectedOptionIds.Count > 0,
+            CanVote = CanAccessPoll(context, poll) && !IsClosed(poll) && selectedOptionIds.Count == 0,
+            IsMultipleChoice = poll.IsMultipleChoice,
+            AllowMultipleChoices = poll.IsMultipleChoice,
             SelectedOptionId = selectedOptionId,
+            SelectedOptionIds = selectedOptionIds,
             TotalVotes = totalVotes,
             AudienceGroups = ToAudienceGroupNames(poll.AudienceGroups),
             Options = poll.Options
@@ -271,7 +302,7 @@ public static class VoteEndpoints
                         Text = option.Text,
                         Votes = votes,
                         Percent = totalVotes == 0 ? 0f : (float)votes * 100f / totalVotes,
-                        IsSelected = selectedOptionId == option.Id
+                        IsSelected = selectedOptionIds.Contains(option.Id)
                     };
                 })
                 .ToList()
@@ -379,6 +410,24 @@ public static class VoteEndpoints
         return DateOnly.FromDateTime(CalendarNotificationTime.GetMoscowNow().DateTime);
     }
 
+    private static List<int> NormalizeVoteOptionIds(VotePollVoteRequest request)
+    {
+        List<int> result = new();
+
+        if (request.OptionIds != null)
+        {
+            foreach (int optionId in request.OptionIds)
+            {
+                if (optionId > 0 && !result.Contains(optionId))
+                    result.Add(optionId);
+            }
+        }
+
+        if (request.OptionId > 0 && !result.Contains(request.OptionId))
+            result.Add(request.OptionId);
+
+        return result;
+    }
     private static List<string> NormalizeOptions(List<string>? options)
     {
         List<string> result = new();

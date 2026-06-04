@@ -1,4 +1,4 @@
-using PushPelmesh.Api.Models;
+﻿using PushPelmesh.Api.Models;
 
 namespace PushPelmesh.Api.Dtos.Voting;
 
@@ -23,7 +23,10 @@ public class VotePollDto
     public bool IsClosed { get; set; }
     public bool HasVoted { get; set; }
     public bool CanVote { get; set; }
+    public bool IsMultipleChoice { get; set; }
+    public bool AllowMultipleChoices { get; set; }
     public int SelectedOptionId { get; set; }
+    public List<int> SelectedOptionIds { get; set; } = new();
     public int TotalVotes { get; set; }
     public List<string> AudienceGroups { get; set; } = new();
     public List<VoteOptionDto> Options { get; set; } = new();
@@ -43,6 +46,8 @@ public class CreateVotePollRequest
     public string Title { get; set; } = "";
     public string Description { get; set; } = "";
     public DateOnly EndDate { get; set; }
+    public bool IsMultipleChoice { get; set; }
+    public bool AllowMultipleChoices { get; set; }
     public List<string> Options { get; set; } = new();
     public List<string> AudienceGroups { get; set; } = new();
 }
@@ -50,4 +55,5 @@ public class CreateVotePollRequest
 public class VotePollVoteRequest
 {
     public int OptionId { get; set; }
+    public List<int> OptionIds { get; set; } = new();
 }
