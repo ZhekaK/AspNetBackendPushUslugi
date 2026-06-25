@@ -20,6 +20,10 @@ public class AppDbContext : DbContext
     public DbSet<VotePoll> VotePolls => Set<VotePoll>();
     public DbSet<VoteOption> VoteOptions => Set<VoteOption>();
     public DbSet<VoteBallot> VoteBallots => Set<VoteBallot>();
+    public DbSet<ZongRoom> ZongRooms => Set<ZongRoom>();
+    public DbSet<ZongRoomPlayer> ZongRoomPlayers => Set<ZongRoomPlayer>();
+    public DbSet<DurakRoom> DurakRooms => Set<DurakRoom>();
+    public DbSet<DurakRoomPlayer> DurakRoomPlayers => Set<DurakRoomPlayer>();
 
     public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options)
@@ -230,6 +234,166 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+
+        modelBuilder.Entity<ZongRoom>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.HasIndex(x => x.Status);
+            entity.HasIndex(x => x.UpdatedAt);
+
+            entity.Property(x => x.Name)
+                .HasMaxLength(128)
+                .IsRequired();
+
+            entity.Property(x => x.PasswordHash)
+                .HasMaxLength(128);
+
+            entity.Property(x => x.LastDice)
+                .HasMaxLength(64);
+
+            entity.Property(x => x.LastRollMessage)
+                .HasMaxLength(512);
+
+            entity.HasOne(x => x.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.CurrentTurnPlayer)
+                .WithMany()
+                .HasForeignKey(x => x.CurrentTurnPlayerId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(x => x.WinnerPlayer)
+                .WithMany()
+                .HasForeignKey(x => x.WinnerPlayerId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ZongRoomPlayer>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.HasIndex(x => new
+                {
+                    x.ZongRoomId,
+                    x.UserId
+                })
+                .IsUnique();
+
+            entity.HasIndex(x => new
+            {
+                x.ZongRoomId,
+                x.TurnOrder
+            });
+
+            entity.Property(x => x.DisplayName)
+                .HasMaxLength(256)
+                .IsRequired();
+
+            entity.HasOne(x => x.ZongRoom)
+                .WithMany(x => x.Players)
+                .HasForeignKey(x => x.ZongRoomId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DurakRoom>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.HasIndex(x => x.Status);
+            entity.HasIndex(x => x.UpdatedAt);
+
+            entity.Property(x => x.Name)
+                .HasMaxLength(128)
+                .IsRequired();
+
+            entity.Property(x => x.PasswordHash)
+                .HasMaxLength(128);
+
+            entity.Property(x => x.TrumpSuit)
+                .HasMaxLength(32);
+
+            entity.Property(x => x.TrumpCardCode)
+                .HasMaxLength(8);
+
+            entity.Property(x => x.DeckJson)
+                .HasColumnType("jsonb")
+                .IsRequired();
+
+            entity.Property(x => x.TableJson)
+                .HasColumnType("jsonb")
+                .IsRequired();
+
+            entity.Property(x => x.DiscardJson)
+                .HasColumnType("jsonb")
+                .IsRequired();
+
+            entity.Property(x => x.LastMessage)
+                .HasMaxLength(512);
+
+            entity.HasOne(x => x.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(x => x.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.AttackerPlayer)
+                .WithMany()
+                .HasForeignKey(x => x.AttackerPlayerId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(x => x.DefenderPlayer)
+                .WithMany()
+                .HasForeignKey(x => x.DefenderPlayerId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(x => x.WinnerPlayer)
+                .WithMany()
+                .HasForeignKey(x => x.WinnerPlayerId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<DurakRoomPlayer>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.HasIndex(x => new
+                {
+                    x.DurakRoomId,
+                    x.UserId
+                })
+                .IsUnique();
+
+            entity.HasIndex(x => new
+            {
+                x.DurakRoomId,
+                x.TurnOrder
+            });
+
+            entity.Property(x => x.DisplayName)
+                .HasMaxLength(256)
+                .IsRequired();
+
+            entity.Property(x => x.HandJson)
+                .HasColumnType("jsonb")
+                .IsRequired();
+
+            entity.HasOne(x => x.DurakRoom)
+                .WithMany(x => x.Players)
+                .HasForeignKey(x => x.DurakRoomId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
         modelBuilder.Entity<CinemaMovieRating>(entity =>
         {
             entity.HasKey(x => x.Id);
@@ -251,6 +415,9 @@ public class AppDbContext : DbContext
         });
     }
 }
+
+
+
 
 
 

@@ -210,6 +210,145 @@ namespace PushPelmesh.Api.Migrations
                     b.ToTable("CinemaMovieRatings");
                 });
 
+            modelBuilder.Entity("PushPelmesh.Api.Models.DurakRoom", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AttackerPlayerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CardCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DeckJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int?>("DefenderPlayerId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DiscardJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<bool>("FirstBout")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("LastMessage")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<int>("MaxPlayers")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TableJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("TrumpCardCode")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<string>("TrumpSuit")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("WinnerPlayerId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttackerPlayerId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("DefenderPlayerId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.HasIndex("WinnerPlayerId");
+
+                    b.ToTable("DurakRooms");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.DurakRoomPlayer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("DurakRoomId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("HandJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<bool>("HasPassed")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsOut")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("JoinedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("TurnOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("DurakRoomId", "TurnOrder");
+
+                    b.HasIndex("DurakRoomId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("DurakRoomPlayers");
+                });
+
             modelBuilder.Entity("PushPelmesh.Api.Models.PushNotificationSubscription", b =>
                 {
                     b.Property<int>("Id")
@@ -556,6 +695,125 @@ namespace PushPelmesh.Api.Migrations
                     b.ToTable("xoxi_saves", (string)null);
                 });
 
+            modelBuilder.Entity("PushPelmesh.Api.Models.ZongRoom", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("CurrentTurnPlayerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("CurrentTurnScore")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LastDice")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("LastRollMessage")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<int>("LastRollScore")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MaxPlayers")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int>("RemainingDice")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TargetScore")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("WinnerPlayerId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("CurrentTurnPlayerId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.HasIndex("WinnerPlayerId");
+
+                    b.ToTable("ZongRooms");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.ZongRoomPlayer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("InitialRoll")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("JoinedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TurnOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ZongRoomId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ZongRoomId", "TurnOrder");
+
+                    b.HasIndex("ZongRoomId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("ZongRoomPlayers");
+                });
+
             modelBuilder.Entity("PushPelmesh.Api.Models.AccessKey", b =>
                 {
                     b.HasOne("PushPelmesh.Api.Models.User", "ActivatedByUser")
@@ -603,6 +861,57 @@ namespace PushPelmesh.Api.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("CreatedByUser");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.DurakRoom", b =>
+                {
+                    b.HasOne("PushPelmesh.Api.Models.DurakRoomPlayer", "AttackerPlayer")
+                        .WithMany()
+                        .HasForeignKey("AttackerPlayerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("PushPelmesh.Api.Models.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PushPelmesh.Api.Models.DurakRoomPlayer", "DefenderPlayer")
+                        .WithMany()
+                        .HasForeignKey("DefenderPlayerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("PushPelmesh.Api.Models.DurakRoomPlayer", "WinnerPlayer")
+                        .WithMany()
+                        .HasForeignKey("WinnerPlayerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("AttackerPlayer");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("DefenderPlayer");
+
+                    b.Navigation("WinnerPlayer");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.DurakRoomPlayer", b =>
+                {
+                    b.HasOne("PushPelmesh.Api.Models.DurakRoom", "DurakRoom")
+                        .WithMany("Players")
+                        .HasForeignKey("DurakRoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PushPelmesh.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DurakRoom");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("PushPelmesh.Api.Models.PushNotificationSubscription", b =>
@@ -697,6 +1006,55 @@ namespace PushPelmesh.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("PushPelmesh.Api.Models.ZongRoom", b =>
+                {
+                    b.HasOne("PushPelmesh.Api.Models.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PushPelmesh.Api.Models.ZongRoomPlayer", "CurrentTurnPlayer")
+                        .WithMany()
+                        .HasForeignKey("CurrentTurnPlayerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("PushPelmesh.Api.Models.ZongRoomPlayer", "WinnerPlayer")
+                        .WithMany()
+                        .HasForeignKey("WinnerPlayerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("CurrentTurnPlayer");
+
+                    b.Navigation("WinnerPlayer");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.ZongRoomPlayer", b =>
+                {
+                    b.HasOne("PushPelmesh.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PushPelmesh.Api.Models.ZongRoom", "ZongRoom")
+                        .WithMany("Players")
+                        .HasForeignKey("ZongRoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+
+                    b.Navigation("ZongRoom");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.DurakRoom", b =>
+                {
+                    b.Navigation("Players");
+                });
+
             modelBuilder.Entity("PushPelmesh.Api.Models.VoteOption", b =>
                 {
                     b.Navigation("Ballots");
@@ -707,6 +1065,11 @@ namespace PushPelmesh.Api.Migrations
                     b.Navigation("Ballots");
 
                     b.Navigation("Options");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.ZongRoom", b =>
+                {
+                    b.Navigation("Players");
                 });
 #pragma warning restore 612, 618
         }
