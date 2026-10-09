@@ -24,6 +24,11 @@ public class AppDbContext : DbContext
     public DbSet<ZongRoomPlayer> ZongRoomPlayers => Set<ZongRoomPlayer>();
     public DbSet<DurakRoom> DurakRooms => Set<DurakRoom>();
     public DbSet<DurakRoomPlayer> DurakRoomPlayers => Set<DurakRoomPlayer>();
+    public DbSet<RememberedLogin> RememberedLogins => Set<RememberedLogin>();
+    public DbSet<ChatRoom> ChatRooms => Set<ChatRoom>();
+    public DbSet<ChatParticipant> ChatParticipants => Set<ChatParticipant>();
+    public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<ChatNotificationSetting> ChatNotificationSettings => Set<ChatNotificationSetting>();
 
     public AppDbContext(DbContextOptions<AppDbContext> options)
         : base(options)
@@ -412,6 +417,54 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(x => x.CreatedByUserId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<RememberedLogin>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.TokenHash).IsUnique();
+            entity.Property(x => x.TokenHash).HasMaxLength(64).IsRequired();
+            entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ChatRoom>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.DirectKey).IsUnique();
+            entity.Property(x => x.DirectKey).HasMaxLength(64);
+            entity.Property(x => x.Title).HasMaxLength(120);
+            entity.HasOne(x => x.CreatedByUser).WithMany().HasForeignKey(x => x.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ChatParticipant>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => new { x.ChatRoomId, x.UserId }).IsUnique();
+            entity.HasIndex(x => x.UserId);
+            entity.HasOne(x => x.ChatRoom).WithMany(x => x.Participants)
+                .HasForeignKey(x => x.ChatRoomId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ChatMessage>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => new { x.ChatRoomId, x.Id });
+            entity.Property(x => x.Text).HasMaxLength(2000).IsRequired();
+            entity.HasOne(x => x.ChatRoom).WithMany().HasForeignKey(x => x.ChatRoomId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.Sender).WithMany().HasForeignKey(x => x.SenderUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+        modelBuilder.Entity<ChatNotificationSetting>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => new { x.UserId, x.ChatId }).IsUnique();
+            entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

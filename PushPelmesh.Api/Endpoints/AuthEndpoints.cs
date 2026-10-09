@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using PushPelmesh.Api.Data;
 using PushPelmesh.Api.Dtos;
@@ -80,11 +82,21 @@ public static class AuthEndpoints
             await db.SaveChangesAsync();
 
             var token = jwtTokenGenerator.Generate(user);
+            var rememberToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+            db.RememberedLogins.Add(new RememberedLogin
+            {
+                UserId = user.Id,
+                TokenHash = HashRememberToken(rememberToken),
+                CreatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+
             return Results.Ok(new
             {
                 message = "Login successful",
 
                 token = token,
+                rememberToken,
 
                 user = new
                 {
@@ -97,6 +109,63 @@ public static class AuthEndpoints
                 {
                     series = accessKey.Series,
                     number = accessKey.Number
+                }
+            });
+        });
+
+        app.MapPost("/api/auth/login-by-name", async (
+            LoginByNameRequest request,
+            AppDbContext db,
+            JwtTokenGenerator jwtTokenGenerator) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.RememberToken) || request.RememberToken.Length != 64)
+                return Results.Json(new { message = "Full login required", requiresKeyLogin = true }, statusCode: 401);
+
+            var tokenHash = HashRememberToken(request.RememberToken);
+            var rememberedLogin = await db.RememberedLogins
+                .Include(x => x.User)
+                .FirstOrDefaultAsync(x => x.TokenHash == tokenHash);
+
+            if (rememberedLogin == null || rememberedLogin.User.Type == UserType.Guest ||
+                string.IsNullOrWhiteSpace(rememberedLogin.User.UserSeries) ||
+                string.IsNullOrWhiteSpace(rememberedLogin.User.UserNumber))
+            {
+                return Results.Json(new { message = "Full login required", requiresKeyLogin = true }, statusCode: 401);
+            }
+
+            var enteredName = request.FirstName?.Trim() ?? "";
+            if (!string.Equals(enteredName, rememberedLogin.User.FirstName.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                rememberedLogin.FailedNameAttempts++;
+                var attemptsRemaining = Math.Max(0, 3 - rememberedLogin.FailedNameAttempts);
+                if (attemptsRemaining == 0)
+                    db.RememberedLogins.Remove(rememberedLogin);
+
+                await db.SaveChangesAsync();
+                return Results.Json(new
+                {
+                    message = "Incorrect name",
+                    attemptsRemaining,
+                    requiresKeyLogin = attemptsRemaining == 0
+                }, statusCode: 401);
+            }
+
+            rememberedLogin.FailedNameAttempts = 0;
+            rememberedLogin.LastUsedAt = DateTime.UtcNow;
+            rememberedLogin.User.LastLoginAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+
+            var user = rememberedLogin.User;
+            return Results.Ok(new
+            {
+                message = "Login successful",
+                token = jwtTokenGenerator.Generate(user),
+                rememberToken = request.RememberToken,
+                user = new
+                {
+                    id = user.Id,
+                    type = user.Type.ToString(),
+                    displayName = user.FirstName
                 }
             });
         });
@@ -132,4 +201,7 @@ public static class AuthEndpoints
             });
         });
     }
+
+    private static string HashRememberToken(string token) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 }

@@ -32,6 +32,13 @@ public static class PushEndpoints
                 });
             }
 
+            // A browser endpoint belongs to one current account. A shared browser may
+            // retain the same subscription after a different user signs in.
+            var previousOwners = await db.PushNotificationSubscriptions
+                .Where(x => x.Endpoint == request.Endpoint && x.UserId != userId)
+                .ToListAsync();
+            db.PushNotificationSubscriptions.RemoveRange(previousOwners);
+
             var existing = await db.PushNotificationSubscriptions
                 .FirstOrDefaultAsync(x =>
                     x.UserId == userId &&

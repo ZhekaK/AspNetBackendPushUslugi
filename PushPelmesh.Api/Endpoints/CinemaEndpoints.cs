@@ -22,6 +22,7 @@ public static class CinemaEndpoints
                     rating = x.Rating,
                     watchedAt = x.WatchedAt,
                     url = x.Url,
+                    isExtra = x.IsExtra,
                     createdAt = x.CreatedAt
                 })
                 .ToListAsync();
@@ -89,6 +90,7 @@ public static class CinemaEndpoints
                 Rating = request.Rating,
                 WatchedAt = request.WatchedAt,
                 Url = request.Url?.Trim() ?? "",
+                IsExtra = request.IsExtra,
                 CreatedByUserId = user.Id,
                 CreatedAt = DateTime.UtcNow
             };
@@ -103,6 +105,7 @@ public static class CinemaEndpoints
                 rating = movie.Rating,
                 watchedAt = movie.WatchedAt,
                 url = movie.Url,
+                isExtra = movie.IsExtra,
                 createdAt = movie.CreatedAt
             });
         })

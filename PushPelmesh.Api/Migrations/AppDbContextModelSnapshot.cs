@@ -172,6 +172,128 @@ namespace PushPelmesh.Api.Migrations
                     b.ToTable("CalendarEventPushDeliveries");
                 });
 
+            modelBuilder.Entity("PushPelmesh.Api.Models.ChatMessage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int?>("ChatRoomId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SenderUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SenderUserId");
+
+                    b.HasIndex("ChatRoomId", "Id");
+
+                    b.ToTable("ChatMessages");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.ChatNotificationSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ChatId")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("LastReadMessageId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("Muted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "ChatId")
+                        .IsUnique();
+
+                    b.ToTable("ChatNotificationSettings");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.ChatParticipant", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ChatRoomId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("JoinedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ChatRoomId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("ChatParticipants");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.ChatRoom", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DirectKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("DirectKey")
+                        .IsUnique();
+
+                    b.ToTable("ChatRooms");
+                });
+
             modelBuilder.Entity("PushPelmesh.Api.Models.CinemaMovieRating", b =>
                 {
                     b.Property<int>("Id")
@@ -185,6 +307,9 @@ namespace PushPelmesh.Api.Migrations
 
                     b.Property<int?>("CreatedByUserId")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("IsExtra")
+                        .HasColumnType("boolean");
 
                     b.Property<decimal>("Rating")
                         .HasPrecision(4, 2)
@@ -386,6 +511,41 @@ namespace PushPelmesh.Api.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("PushNotificationSubscriptions");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.RememberedLogin", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("FailedNameAttempts")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("RememberedLogins");
                 });
 
             modelBuilder.Entity("PushPelmesh.Api.Models.RewardRecord", b =>
@@ -853,6 +1013,65 @@ namespace PushPelmesh.Api.Migrations
                     b.Navigation("PushNotificationSubscription");
                 });
 
+            modelBuilder.Entity("PushPelmesh.Api.Models.ChatMessage", b =>
+                {
+                    b.HasOne("PushPelmesh.Api.Models.ChatRoom", "ChatRoom")
+                        .WithMany()
+                        .HasForeignKey("ChatRoomId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("PushPelmesh.Api.Models.User", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ChatRoom");
+
+                    b.Navigation("Sender");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.ChatNotificationSetting", b =>
+                {
+                    b.HasOne("PushPelmesh.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.ChatParticipant", b =>
+                {
+                    b.HasOne("PushPelmesh.Api.Models.ChatRoom", "ChatRoom")
+                        .WithMany("Participants")
+                        .HasForeignKey("ChatRoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PushPelmesh.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ChatRoom");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.ChatRoom", b =>
+                {
+                    b.HasOne("PushPelmesh.Api.Models.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
+                });
+
             modelBuilder.Entity("PushPelmesh.Api.Models.CinemaMovieRating", b =>
                 {
                     b.HasOne("PushPelmesh.Api.Models.User", "CreatedByUser")
@@ -915,6 +1134,17 @@ namespace PushPelmesh.Api.Migrations
                 });
 
             modelBuilder.Entity("PushPelmesh.Api.Models.PushNotificationSubscription", b =>
+                {
+                    b.HasOne("PushPelmesh.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.RememberedLogin", b =>
                 {
                     b.HasOne("PushPelmesh.Api.Models.User", "User")
                         .WithMany()
@@ -1048,6 +1278,11 @@ namespace PushPelmesh.Api.Migrations
                     b.Navigation("User");
 
                     b.Navigation("ZongRoom");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.ChatRoom", b =>
+                {
+                    b.Navigation("Participants");
                 });
 
             modelBuilder.Entity("PushPelmesh.Api.Models.DurakRoom", b =>

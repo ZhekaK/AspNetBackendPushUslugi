@@ -12,6 +12,8 @@ public class CinemaMovieRating
 
     public string Url { get; set; } = "";
 
+    public bool IsExtra { get; set; }
+
     public int? CreatedByUserId { get; set; }
 
     public User? CreatedByUser { get; set; }

@@ -34,6 +34,7 @@ builder.Services
                 ValidateAudience = true,
 
                 ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero,
 
                 ValidateIssuerSigningKey = true,
 
@@ -88,6 +89,7 @@ app.MapCalendarEndpoints();
 app.MapModuleNotificationEndpoints();
 app.MapRewardEndpoints();
 app.MapCinemaEndpoints();
+app.MapMessengerEndpoints();
 app.MapVoteEndpoints();
 app.MapZongEndpoints();
 app.MapDurakEndpoints();

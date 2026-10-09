@@ -9,4 +9,5 @@ public class CreateCinemaMovieRequest
     public DateOnly WatchedAt { get; set; }
 
     public string Url { get; set; } = "";
+    public bool IsExtra { get; set; }
 }
