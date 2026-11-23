@@ -474,6 +474,20 @@ namespace PushPelmesh.Api.Migrations
                     b.ToTable("DurakRoomPlayers");
                 });
 
+            modelBuilder.Entity("PushPelmesh.Api.Models.IdentityPhoto", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("Jpeg")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("UserId");
+
+                    b.ToTable("IdentityPhotos");
+                });
+
             modelBuilder.Entity("PushPelmesh.Api.Models.PushNotificationSubscription", b =>
                 {
                     b.Property<int>("Id")
@@ -835,6 +849,76 @@ namespace PushPelmesh.Api.Migrations
                     b.ToTable("VotePolls");
                 });
 
+            modelBuilder.Entity("PushPelmesh.Api.Models.XoxiRoom", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.PrimitiveCollection<int[]>("Cells")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
+                    b.Property<int?>("LastCell")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Moves")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int?>("OpponentUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("OwnerPlaysNoughts")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("OwnerUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Started")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("Winner")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OpponentUserId");
+
+                    b.HasIndex("OwnerUserId");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.ToTable("XoxiRooms");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.XoxiRoomAdmission", b =>
+                {
+                    b.Property<int>("RoomId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("RoomId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("XoxiRoomAdmissions");
+                });
+
             modelBuilder.Entity("PushPelmesh.Api.Models.XoxiSave", b =>
                 {
                     b.Property<int>("UserId")
@@ -1133,6 +1217,17 @@ namespace PushPelmesh.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("PushPelmesh.Api.Models.IdentityPhoto", b =>
+                {
+                    b.HasOne("PushPelmesh.Api.Models.User", "User")
+                        .WithOne()
+                        .HasForeignKey("PushPelmesh.Api.Models.IdentityPhoto", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("PushPelmesh.Api.Models.PushNotificationSubscription", b =>
                 {
                     b.HasOne("PushPelmesh.Api.Models.User", "User")
@@ -1223,6 +1318,39 @@ namespace PushPelmesh.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("CreatedByUser");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.XoxiRoom", b =>
+                {
+                    b.HasOne("PushPelmesh.Api.Models.User", "Opponent")
+                        .WithMany()
+                        .HasForeignKey("OpponentUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("PushPelmesh.Api.Models.User", "Owner")
+                        .WithMany()
+                        .HasForeignKey("OwnerUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Opponent");
+
+                    b.Navigation("Owner");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.XoxiRoomAdmission", b =>
+                {
+                    b.HasOne("PushPelmesh.Api.Models.XoxiRoom", null)
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("PushPelmesh.Api.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("PushPelmesh.Api.Models.XoxiSave", b =>

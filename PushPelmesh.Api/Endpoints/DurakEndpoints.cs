@@ -13,6 +13,9 @@ public static class DurakEndpoints
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    private static FormattableString LockRoom(int id) =>
+        $"""SELECT "UpdatedAt" FROM "DurakRooms" WHERE "Id" = {id} FOR UPDATE""";
+
     public static void MapDurakEndpoints(this WebApplication app)
     {
         app.MapGet("/api/durak/rooms", async (ClaimsPrincipal claimsUser, AppDbContext db) =>
@@ -31,7 +34,7 @@ public static class DurakEndpoints
 
             return Results.Ok(new DurakRoomsResponse
             {
-                Rooms = rooms.Select(ToListItemDto).ToList()
+                Rooms = rooms.Select(room => ToListItemDto(room, user.Id)).ToList()
             });
         })
         .RequireAuthorization();
@@ -48,8 +51,8 @@ public static class DurakEndpoints
 
             string name = request.Name?.Trim() ?? "";
 
-            if (string.IsNullOrWhiteSpace(name))
-                return Results.BadRequest(new { message = "Room name is required" });
+            if (name.Length is < 1 or > 128)
+                return Results.BadRequest(new { message = "Room name must be 1-128 characters" });
 
             int cardCount = NormalizeCardCount(request.CardCount);
             int maxPlayers = Math.Clamp(request.MaxPlayers <= 0 ? 2 : request.MaxPlayers, 2, MaxPlayers(cardCount));
@@ -128,6 +131,7 @@ public static class DurakEndpoints
             room = (await LoadRoomAsync(db, id))!;
             return Results.Ok(new DurakRoomResponse { Room = ToDto(room, user.Id) });
         })
+        .SerializeRoomChanges(LockRoom)
         .RequireAuthorization();
 
         app.MapGet("/api/durak/rooms/{id:int}", async (
@@ -182,6 +186,7 @@ public static class DurakEndpoints
             room = (await LoadRoomAsync(db, id))!;
             return Results.Ok(new DurakRoomResponse { Room = ToDto(room, user.Id) });
         })
+        .SerializeRoomChanges(LockRoom)
         .RequireAuthorization();
 
         app.MapPost("/api/durak/rooms/{id:int}/attack", async (
@@ -193,6 +198,7 @@ public static class DurakEndpoints
             var result = await RunGameAction(id, claimsUser, db, (room, player) => Attack(room, player, request.CardCode));
             return result;
         })
+        .SerializeRoomChanges(LockRoom)
         .RequireAuthorization();
 
         app.MapPost("/api/durak/rooms/{id:int}/defend", async (
@@ -204,6 +210,7 @@ public static class DurakEndpoints
             var result = await RunGameAction(id, claimsUser, db, (room, player) => Defend(room, player, request.AttackCardCode, request.CardCode));
             return result;
         })
+        .SerializeRoomChanges(LockRoom)
         .RequireAuthorization();
 
         app.MapPost("/api/durak/rooms/{id:int}/transfer", async (
@@ -215,6 +222,7 @@ public static class DurakEndpoints
             var result = await RunGameAction(id, claimsUser, db, (room, player) => Transfer(room, player, request.CardCode));
             return result;
         })
+        .SerializeRoomChanges(LockRoom)
         .RequireAuthorization();
 
         app.MapPost("/api/durak/rooms/{id:int}/take", async (
@@ -225,6 +233,7 @@ public static class DurakEndpoints
             var result = await RunGameAction(id, claimsUser, db, Take);
             return result;
         })
+        .SerializeRoomChanges(LockRoom)
         .RequireAuthorization();
 
         app.MapPost("/api/durak/rooms/{id:int}/pass", async (
@@ -235,6 +244,7 @@ public static class DurakEndpoints
             var result = await RunGameAction(id, claimsUser, db, Pass);
             return result;
         })
+        .SerializeRoomChanges(LockRoom)
         .RequireAuthorization();
     }
 
@@ -264,7 +274,6 @@ public static class DurakEndpoints
             return validation;
 
         room.UpdatedAt = DateTime.UtcNow;
-        CheckFinish(room);
         await db.SaveChangesAsync();
 
         room = (await LoadRoomAsync(db, id))!;
@@ -300,7 +309,8 @@ public static class DurakEndpoints
             return Results.BadRequest(new { message = "It is not your defense" });
 
         var table = ReadTable(room);
-        var pair = table.FirstOrDefault(x => x.Attack.Code == attackCardCode && x.Defense == null) ?? table.FirstOrDefault(x => x.Defense == null);
+        var pair = table.FirstOrDefault(x => x.Defense == null &&
+            (string.IsNullOrWhiteSpace(attackCardCode) || x.Attack.Code == attackCardCode));
 
         if (pair == null)
             return Results.BadRequest(new { message = "Nothing to defend" });
@@ -345,7 +355,7 @@ public static class DurakEndpoints
         if (nextDefender == null)
             return Results.BadRequest(new { message = "No next defender" });
 
-        if (table.Count + 1 > ReadHand(nextDefender).Count)
+        if (table.Count + 1 > Math.Min(room.FirstBout ? 5 : 6, ReadHand(nextDefender).Count))
             return Results.BadRequest(new { message = "Next defender has too few cards" });
 
         table.Add(new DurakTableCardState { Attack = card });
@@ -363,6 +373,9 @@ public static class DurakEndpoints
             return Results.BadRequest(new { message = "It is not your defense" });
 
         var table = ReadTable(room);
+        if (!table.Any(x => x.Defense == null))
+            return Results.BadRequest(new { message = "Nothing to take" });
+
         var hand = ReadHand(player);
 
         foreach (var pair in table)
@@ -427,15 +440,26 @@ public static class DurakEndpoints
     {
         DrawAfterBout(room);
         MarkOutPlayers(room);
-        room.AttackerPlayerId = nextAttackerId;
-        room.DefenderPlayerId = NextActivePlayer(room, nextAttackerId)?.Id;
+        CheckFinish(room);
+        if (room.Status == DurakRoomStatus.Finished)
+        {
+            room.AttackerPlayerId = null;
+            room.DefenderPlayerId = null;
+            return;
+        }
+
+        var attacker = room.Players.FirstOrDefault(x => x.Id == nextAttackerId && !x.IsOut)
+            ?? NextActivePlayer(room, nextAttackerId);
+        room.AttackerPlayerId = attacker?.Id;
+        room.DefenderPlayerId = attacker == null ? null : NextActivePlayer(room, attacker.Id)?.Id;
         room.FirstBout = false;
     }
 
     private static void DrawAfterBout(DurakRoom room)
     {
         var deck = ReadDeck(room);
-        var ordered = OrderedFrom(room, room.AttackerPlayerId ?? room.Players.OrderBy(x => x.TurnOrder).First().Id).ToList();
+        var ordered = OrderedFrom(room, room.AttackerPlayerId ?? room.Players.OrderBy(x => x.TurnOrder).First().Id)
+            .OrderBy(player => player.Id == room.DefenderPlayerId);
 
         foreach (var player in ordered)
         {
@@ -464,7 +488,6 @@ public static class DurakEndpoints
 
     private static void CheckFinish(DurakRoom room)
     {
-        MarkOutPlayers(room);
         var active = room.Players.Where(x => !x.IsOut).ToList();
 
         if (room.Status == DurakRoomStatus.InProgress && ReadDeck(room).Count == 0 && active.Count <= 1)
@@ -482,10 +505,13 @@ public static class DurakEndpoints
         bool allDefended = table.Count > 0 && table.All(x => x.Defense != null);
         bool isAttacker = myPlayer != null && room.AttackerPlayerId == myPlayer.Id;
         bool isDefender = myPlayer != null && room.DefenderPlayerId == myPlayer.Id;
+        var nextDefender = isDefender ? NextActivePlayer(room, myPlayer!.Id) : null;
+        int transferLimit = nextDefender == null ? 0 : Math.Min(room.FirstBout ? 5 : 6, ReadHand(nextDefender).Count);
 
         return new DurakRoomDto
         {
             Id = room.Id,
+            Version = GameRoomMutation.VersionOf(room.UpdatedAt),
             Name = room.Name,
             MaxPlayers = room.MaxPlayers,
             CardCount = room.CardCount,
@@ -498,9 +524,11 @@ public static class DurakEndpoints
             DefenderPlayerId = room.DefenderPlayerId ?? 0,
             IsCreator = room.CreatedByUserId == userId,
             CanStart = room.CreatedByUserId == userId && room.Status == DurakRoomStatus.Waiting && room.Players.Count >= 2,
-            CanAttack = room.Status == DurakRoomStatus.InProgress && isAttacker && table.Count < (room.FirstBout ? 5 : 6),
+            CanAttack = room.Status == DurakRoomStatus.InProgress && isAttacker && table.Count < AttackLimit(room, table),
+            AttackLimit = AttackLimit(room, table),
             CanDefend = room.Status == DurakRoomStatus.InProgress && isDefender && table.Any(x => x.Defense == null),
-            CanTransfer = room.Status == DurakRoomStatus.InProgress && isDefender && table.Count > 0 && table.All(x => x.Defense == null),
+            CanTransfer = room.Status == DurakRoomStatus.InProgress && isDefender && table.Count > 0 &&
+                table.Count < transferLimit && table.All(x => x.Defense == null),
             CanTake = room.Status == DurakRoomStatus.InProgress && isDefender && table.Any(x => x.Defense == null),
             CanPass = room.Status == DurakRoomStatus.InProgress && isAttacker && allDefended,
             Message = room.LastMessage,
@@ -527,7 +555,7 @@ public static class DurakEndpoints
         };
     }
 
-    private static DurakRoomListItemDto ToListItemDto(DurakRoom room)
+    private static DurakRoomListItemDto ToListItemDto(DurakRoom room, int userId)
     {
         return new DurakRoomListItemDto
         {
@@ -535,6 +563,7 @@ public static class DurakEndpoints
             Name = room.Name,
             MaxPlayers = room.MaxPlayers,
             PlayerCount = room.Players.Count,
+            IsMember = room.Players.Any(player => player.UserId == userId),
             CardCount = room.CardCount,
             Status = room.Status.ToString(),
             HasPassword = !string.IsNullOrWhiteSpace(room.PasswordHash)
@@ -543,12 +572,17 @@ public static class DurakEndpoints
 
     private static bool CanAddAttack(DurakRoom room, List<DurakTableCardState> table, DurakCardState card)
     {
-        int limit = room.FirstBout ? 5 : 6;
-
-        if (table.Count >= limit)
+        if (table.Count >= AttackLimit(room, table))
             return false;
 
         return table.Count == 0 || table.Any(x => x.Attack.Rank == card.Rank || (x.Defense != null && x.Defense.Rank == card.Rank));
+    }
+
+    private static int AttackLimit(DurakRoom room, List<DurakTableCardState> table)
+    {
+        var defender = room.Players.FirstOrDefault(x => x.Id == room.DefenderPlayerId);
+        return defender == null ? 0
+            : Math.Min(room.FirstBout ? 5 : 6, ReadHand(defender).Count + table.Count(x => x.Defense != null));
     }
 
     private static bool Beats(DurakCardState defense, DurakCardState attack, string trumpSuit)

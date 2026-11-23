@@ -8,6 +8,14 @@ public static class AdminUserEndpoints
 {
     public static void MapAdminUserEndpoints(this WebApplication app)
     {
+        app.MapGet("/api/admin/access", (HttpContext context, IConfiguration configuration) =>
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            return AdminKeyValidator.IsValid(context.Request, configuration)
+                ? Results.NoContent()
+                : Results.Unauthorized();
+        });
+
         app.MapGet("/api/admin/users", async (
             HttpRequest httpRequest,
             IConfiguration configuration,

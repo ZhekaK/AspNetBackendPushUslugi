@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using PushPelmesh.Api.Data;
 using PushPelmesh.Api.Models;
 using PushPelmesh.Api.Security;
@@ -11,7 +12,8 @@ public static class AdminCleanupEndpoints
         app.MapDelete("/api/admin/cleanup-guests", async (
             HttpRequest httpRequest,
             IConfiguration configuration,
-            AppDbContext db) =>
+            AppDbContext db,
+            CancellationToken cancellationToken) =>
         {
             if (!AdminKeyValidator.IsValid(httpRequest, configuration))
             {
@@ -22,16 +24,27 @@ public static class AdminCleanupEndpoints
 
             var guests = db.Users.Where(x =>
                 x.Type == UserType.Guest &&
-                x.LastLoginAt < cutoffDate);
+                (x.LastLoginAt ?? x.CreatedAt) < cutoffDate);
 
-            db.Users.RemoveRange(guests);
+            // Keep guest records that anchor game, vote, or chat history.
+            var removableGuests = guests.Where(user =>
+                !db.DurakRooms.Any(room => room.CreatedByUserId == user.Id) &&
+                !db.ZongRooms.Any(room => room.CreatedByUserId == user.Id) &&
+                !db.XoxiRooms.Any(room => room.OwnerUserId == user.Id || room.OpponentUserId == user.Id) &&
+                !db.VotePolls.Any(poll => poll.CreatedByUserId == user.Id) &&
+                !db.ChatRooms.Any(chat => chat.CreatedByUserId == user.Id) &&
+                !db.ChatParticipants.Any(participant => participant.UserId == user.Id) &&
+                !db.ChatMessages.Any(message => message.SenderUserId == user.Id) &&
+                !db.AccessKeys.Any(key => key.ActivatedByUser != null && key.ActivatedByUser.Id == user.Id) &&
+                !db.DurakRoomPlayers.Any(player =>
+                    player.UserId == user.Id && player.DurakRoom.Status == DurakRoomStatus.InProgress) &&
+                !db.ZongRoomPlayers.Any(player =>
+                    player.UserId == user.Id && player.ZongRoom.Status == ZongRoomStatus.InProgress));
 
-            var deletedCount = await db.SaveChangesAsync();
+            var deleted = await removableGuests.ExecuteDeleteAsync(cancellationToken);
+            var skipped = await guests.CountAsync(cancellationToken);
 
-            return Results.Ok(new
-            {
-                deleted = deletedCount
-            });
+            return Results.Ok(new { deleted, skipped });
         });
     }
 }

@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#005cb9">
+  <title>Админ-панель · Пыш-Услуги</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/assets/site.css">
+
+  <style>
+    :root {
+      --blue: var(--primary);
+      --blue-dark: var(--primary-dark);
+      --red-dark: #952338;
+      --panel: var(--surface);
+      --text: var(--ink);
+    }
+
+    .admin-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-bottom: 20px;
+    }
+
+    .admin-nav a {
+      color: var(--blue-dark);
+      background: var(--blue-wash);
+      border-radius: 8px;
+      padding: 7px 11px;
+      font-size: .87rem;
+      font-weight: 650;
+    }
+
+    #access { max-width: 470px; }
+    .admin-toolbar { margin: 0 0 18px; }
+
+    section {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+      scroll-margin-top: 90px;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 20px;
+    }
+
+    label {
+      display: block;
+      margin: 0 0 4px;
+      font-size: 13px;
+      color: #344054;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #c9d8eb;
+      border-radius: 8px;
+      margin: 0;
+      font-size: 15px;
+      background: white;
+      color: var(--text);
+    }
+
+    button {
+      background: var(--blue);
+      color: white;
+      border: 1px solid transparent;
+      padding: 10px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 650;
+      min-height: 42px;
+      line-height: 1.2;
+    }
+
+    button:hover {
+      background: var(--blue-dark);
+    }
+
+    button.secondary {
+      background: var(--surface);
+      color: var(--blue-dark);
+      border-color: #a9c5e5;
+    }
+
+    button.secondary:hover {
+      background: var(--blue-wash);
+    }
+
+    button.danger {
+      background: var(--red);
+    }
+
+    button.danger:hover {
+      background: var(--red-dark);
+    }
+
+    button.small-button {
+      padding: 7px 10px;
+      font-size: 13px;
+      white-space: nowrap;
+      min-height: 34px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .full {
+      grid-column: 1 / -1;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .status {
+      margin-top: 12px;
+      font-weight: bold;
+      color: var(--blue);
+      white-space: pre-wrap;
+    }
+
+    .status.error {
+      color: var(--red);
+    }
+
+    .small {
+      margin: 4px 0 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      margin-top: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      min-width: 760px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #eaecf0;
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #344054;
+      font-weight: 700;
+    }
+
+    tr:hover td {
+      background: #f9fbff;
+    }
+
+    @media (max-width: 900px) {
+      .grid,
+      .grid.two,
+      .grid.three {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 520px) {
+      .grid,
+      .grid.two,
+      .grid.three {
+        grid-template-columns: 1fr;
+      }
+      section { padding: 16px; }
+    }
+  </style>
+</head>
+
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="/"><img src="/favicon.png" width="38" height="38" alt=""><span>Пыш<span class="brand-accent">-Услуги</span></span></a>
+    <div class="account"><a class="btn secondary" href="/">На сайт</a></div>
+  </div>
+</header>
+
+<main>
+  <div class="page-title"><h1>Админ-панель</h1></div>
+  <section id="access">
+    <form id="adminLogin" class="stack">
+      <label for="adminKeyInput">Ключ администратора
+        <input id="adminKeyInput" type="password" autocomplete="off" required>
+      </label>
+      <div><button type="submit">Войти</button></div>
+      <p id="authStatus" class="form-error" role="status"></p>
+    </form>
+  </section>
+
+  <div id="adminInterface" hidden>
+  <div class="actions admin-toolbar">
+    <button class="secondary" type="button" onclick="loadAll()">Обновить все данные</button>
+    <button class="secondary" type="button" onclick="clearAdminSettings()">Выйти</button>
+  </div>
+  <nav class="admin-nav" aria-label="Разделы администрирования">
+    <a href="#keys">Ключи</a><a href="#users">Пользователи</a>
+    <a href="#roles">Удостоверения</a><a href="#rewards">Награды</a><a href="#calendar">Календарь</a>
+    <a href="#push">Уведомления</a><a href="#cleanup">Очистка гостей</a>
+  </nav>
+
+  <section id="keys">
+    <h2>Создать ключ доступа</h2>
+
+    <div class="grid">
+      <div>
+        <label for="seriesInput">Серия</label>
+        <input id="seriesInput" placeholder="0526">
+      </div>
+      <div>
+        <label for="middleNameInput">Фамилия</label>
+        <input id="middleNameInput" placeholder="Иванов">
+      </div>
+      <div>
+        <label for="firstNameInput">Имя</label>
+        <input id="firstNameInput" placeholder="Иван">
+      </div>
+      <div>
+        <label for="lastNameInput">Отчество</label>
+        <input id="lastNameInput" placeholder="Иванович">
+      </div>
+      <div>
+        <label for="birthDateInput">Дата рождения</label>
+        <input id="birthDateInput" type="date">
+      </div>
+      <div>
+        <label for="giveDateInput">Дата выдачи</label>
+        <input id="giveDateInput" type="date">
+      </div>
+      <div>
+        <label for="givePlaceInput">Кем/где выдан</label>
+        <input id="givePlaceInput" placeholder="Администрация Пыш-Услуг">
+      </div>
+      <div>
+        <label for="sexInput">Пол</label>
+        <select id="sexInput">
+          <option value="">Не указан</option>
+          <option value="0">Мужской</option>
+          <option value="1">Женский</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button onclick="generateKey()">Создать ключ</button>
+    </div>
+
+    <div id="generateStatus" class="status"></div>
+  </section>
+
+  <section>
+    <h2>Ключи доступа</h2>
+    <button onclick="loadKeys()">Обновить список ключей</button>
+    <div id="keysStatus" class="status"></div>
+    <div id="keysTable"></div>
+  </section>
+
+  <section id="users">
+    <h2>Пользователи</h2>
+    <button onclick="loadUsers()">Обновить список пользователей</button>
+    <div id="usersStatus" class="status"></div>
+    <div id="usersTable"></div>
+  </section>
+
+  <section>
+    <h2>Активация пользователей</h2>
+    <p class="small">Создает пользователей для всех неактивированных ключей доступа и привязывает уже существующих пользователей к их ключам.</p>
+    <button class="secondary" onclick="activateAllAccessKeys()">Активировать все ключи</button>
+    <div id="activateKeysStatus" class="status"></div>
+  </section>
+
+  <section id="roles">
+    <h2>Роли / удостоверения пользователя</h2>
+    <p class="small">Сначала выбери пользователя из таблицы или введи его серию и номер вручную. Роль привязывается именно к паре серия-номер.</p>
+
+    <div class="grid three">
+      <div>
+        <label for="roleUserSeriesInput">Серия пользователя</label>
+        <input id="roleUserSeriesInput" placeholder="0526">
+      </div>
+      <div>
+        <label for="roleUserNumbersInput">Номер пользователя</label>
+        <input id="roleUserNumbersInput" placeholder="148752">
+      </div>
+      <div>
+        <label for="rolePostInput">Должность</label>
+        <select id="rolePostInput">
+          <option value="1">Министр</option>
+          <option value="2">Губернатор</option>
+          <option value="3">Президент</option>
+          <option value="0">Без должности</option>
+        </select>
+      </div>
+      <div>
+        <label for="rolePostNameInput">Название должности в удостоверении</label>
+        <input id="rolePostNameInput" placeholder="Министр пельменных дел">
+      </div>
+      <div>
+        <label for="roleGivePlaceInput">Кем/где выдано</label>
+        <input id="roleGivePlaceInput" placeholder="Администрация Пыш-Услуг">
+      </div>
+      <div>
+        <label for="roleStartDateInput">Дата выдачи</label>
+        <input id="roleStartDateInput" type="date">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button onclick="generateUserRole()">Создать удостоверение</button>
+      <button class="secondary" onclick="loadRolesForSelectedUser()">Показать удостоверения пользователя</button>
+      <button class="secondary" onclick="loadRoles()">Показать все удостоверения</button>
+      <button class="danger" onclick="removeUserRoles()">Удалить все роли пользователя</button>
+    </div>
+
+    <div id="rolesStatus" class="status"></div>
+    <div id="rolesTable"></div>
+  </section>
+
+  
+  <section id="rewards">
+    <h2>Награды</h2>
+    <p class="small">Добавляет запись в модуль наград. Можно выбрать пользователя по серии и номеру или указать ФИО вручную.</p>
+
+    <div class="grid three">
+      <div>
+        <label for="rewardKindInput">Тип записи</label>
+        <select id="rewardKindInput">
+          <option value="0">Чемпионат</option>
+          <option value="1">Гос. награда</option>
+        </select>
+      </div>
+      <div>
+        <label for="rewardDateInput">Дата</label>
+        <input id="rewardDateInput" type="date">
+      </div>
+      <div>
+        <label for="rewardUserSeriesInput">Серия пользователя</label>
+        <input id="rewardUserSeriesInput" placeholder="0526">
+      </div>
+      <div>
+        <label for="rewardUserNumbersInput">Номер пользователя</label>
+        <input id="rewardUserNumbersInput" placeholder="148752">
+      </div>
+      <div>
+        <label for="rewardFullNameInput">ФИО вручную</label>
+        <input id="rewardFullNameInput" placeholder="Если пользователь не выбран">
+      </div>
+      <div>
+        <label for="rewardEventTypeInput">Тип события (для гос. наград)</label>
+        <input id="rewardEventTypeInput" placeholder="Например: указ / премия">
+      </div>
+      <div>
+        <label for="rewardEventNameInput">Название события</label>
+        <input id="rewardEventNameInput" placeholder="Название чемпионата или награды">
+      </div>
+      <div>
+        <label for="rewardPlaceInput">Место (для чемпионатов)</label>
+        <input id="rewardPlaceInput" placeholder="1 место">
+      </div>
+    </div>
+
+    <div class="actions">
+      <button onclick="createReward()">Добавить награду</button>
+    </div>
+
+    <div id="rewardsStatus" class="status"></div>
+  </section>
+  <section id="calendar">
+    <h2>Синхронизация календаря</h2>
+    <p class="small">Создает системные события дней рождений для пользователей с указанной датой рождения.</p>
+    <button class="secondary" onclick="syncBirthdays()">Синхронизировать дни рождения</button>
+    <div id="birthdaySyncStatus" class="status"></div>
+  </section>
+
+  <section id="push">
+    <h2>Системные уведомления</h2>
+    <p class="small">Отправляет push-уведомление выбранным пользователям или всем пользователям с web-подпиской.</p>
+
+    <div class="grid two">
+      <div>
+        <label for="systemPushTitleInput">Название уведомления</label>
+        <input id="systemPushTitleInput" placeholder="Например: Важная новость">
+      </div>
+      <div>
+        <label for="systemPushAllInput">Получатели</label>
+        <select id="systemPushAllInput">
+          <option value="false">Выбранные пользователи</option>
+          <option value="true">Все пользователи</option>
+        </select>
+      </div>
+      <div class="full">
+        <label for="systemPushDescriptionInput">Описание уведомления</label>
+        <textarea id="systemPushDescriptionInput" rows="3" placeholder="Текст уведомления"></textarea>
+      </div>
+    </div>
+
+    <div class="grid three">
+      <div>
+        <label for="systemPushUserSeriesInput">Серия пользователя</label>
+        <input id="systemPushUserSeriesInput" placeholder="0526">
+      </div>
+      <div>
+        <label for="systemPushUserNumbersInput">Номер пользователя</label>
+        <input id="systemPushUserNumbersInput" placeholder="148752">
+      </div>
+      <div class="actions">
+        <button class="secondary" onclick="addSystemPushRecipient()">Добавить получателя</button>
+        <button class="danger" onclick="clearSystemPushRecipients()">Очистить</button>
+      </div>
+    </div>
+
+    <p id="systemPushRecipientsText" class="small">Получатели не выбраны.</p>
+
+    <div class="actions">
+      <button onclick="sendSystemPush()">Отправить уведомление</button>
+    </div>
+
+    <div id="systemPushStatus" class="status"></div>
+  </section>
+
+  <section id="cleanup">
+    <h2>Очистка гостей</h2>
+    <p class="small">Удаляет гостевых пользователей, которые не активны более 7 дней.</p>
+    <button class="danger" onclick="cleanupGuests()">Очистить старых гостей</button>
+    <div id="cleanupStatus" class="status"></div>
+  </section>
+  </div>
+
+</main>
+
+<script>
+  const postLabels = {
+    0: "Без должности",
+    1: "Министр",
+    2: "Губернатор",
+    3: "Президент",
+    None: "Без должности",
+    Minister: "Министр",
+    Governor: "Губернатор",
+    President: "Президент"
+  };
+
+  const systemPushRecipients = [];
+
+  const sexLabels = {
+    "": "",
+    0: "Мужской",
+    1: "Женский",
+    Man: "Мужской",
+    Women: "Женский"
+  };
+
+  function getAdminKey() {
+    return sessionStorage.getItem("push-uslugi.admin-key") || "";
+  }
+
+  async function openAdmin(key) {
+    const button = document.querySelector("#adminLogin button");
+    if (button.disabled) return;
+    button.disabled = true;
+    setText("authStatus", "Проверяем ключ…");
+    try {
+      const response = await fetch("/api/admin/access", {
+        headers: { "X-Admin-Key": key }, cache: "no-store"
+      });
+      if (response.status === 401) {
+        sessionStorage.removeItem("push-uslugi.admin-key");
+        setText("authStatus", "Неверный ключ администратора.");
+        return;
+      }
+      if (response.status !== 204) throw new Error("Сервер не подтвердил доступ");
+      sessionStorage.setItem("push-uslugi.admin-key", key);
+      document.getElementById("adminKeyInput").value = "";
+      document.getElementById("access").hidden = true;
+      document.getElementById("adminInterface").hidden = false;
+      document.querySelector(".admin-toolbar button").focus();
+    } catch {
+      setText("authStatus", "Не удалось проверить ключ. Попробуйте снова.");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function clearAdminSettings() {
+    sessionStorage.removeItem("push-uslugi.admin-key");
+    location.reload();
+  }
+
+  function setText(id, text) {
+    document.getElementById(id).textContent = text;
+  }
+
+  function setStatus(id, text, isError = false) {
+    const element = document.getElementById(id);
+    element.textContent = text;
+    element.classList.toggle("error", isError);
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function fullName(entity) {
+    return [entity.lastName, entity.firstName, entity.middleName]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  function formatDate(value) {
+    if (!value) {
+      return "";
+    }
+
+    return new Date(value).toLocaleString("ru-RU");
+  }
+
+  function formatDateOnly(value) {
+    if (!value) {
+      return "";
+    }
+
+    const date = new Date(`${value}T00:00:00`);
+
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return date.toLocaleDateString("ru-RU");
+  }
+
+  function getRoleIdentity() {
+    return {
+      userSeries: document.getElementById("roleUserSeriesInput").value.trim(),
+      userNumbers: document.getElementById("roleUserNumbersInput").value.trim()
+    };
+  }
+
+  async function apiFetch(path, options = {}) {
+    const adminKey = getAdminKey();
+
+    if (!adminKey) {
+      throw new Error("Admin key не задан");
+    }
+
+    const headers = {
+      "X-Admin-Key": adminKey,
+      ...(options.headers || {})
+    };
+
+    const response = await fetch(path, {
+      ...options,
+      headers
+    });
+
+    const text = await response.text();
+    let body = null;
+
+    if (text) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        body = text;
+      }
+    }
+
+    if (!response.ok) {
+      if (response.status === 401) clearAdminSettings();
+      const message = typeof body === "object" && body !== null
+        ? body.message || body.title || JSON.stringify(body)
+        : body || response.statusText;
+
+      throw new Error(`Ошибка ${response.status}: ${message}`);
+    }
+
+    return body;
+  }
+
+  async function generateKey() {
+    setStatus("generateStatus", "Создание ключа...");
+
+    const series = document.getElementById("seriesInput").value.trim();
+    const firstName = document.getElementById("firstNameInput").value.trim();
+    const middleName = document.getElementById("middleNameInput").value.trim();
+    const lastName = document.getElementById("lastNameInput").value.trim();
+    const birthDate = document.getElementById("birthDateInput").value;
+    const giveDate = document.getElementById("giveDateInput").value;
+    const givePlace = document.getElementById("givePlaceInput").value.trim();
+    const sexValue = document.getElementById("sexInput").value;
+    const sex = sexValue === "" ? null : Number(sexValue);
+
+    if (!series || !firstName || !birthDate) {
+      setStatus("generateStatus", "Заполните серию, имя и дату рождения", true);
+      return;
+    }
+
+    try {
+      const result = await apiFetch("/api/admin/keys/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          series,
+          firstName,
+          middleName: middleName || null,
+          lastName: lastName || null,
+          birthDate,
+          giveDate: giveDate || null,
+          givePlace: givePlace || null,
+          sex
+        })
+      });
+
+      setStatus(
+        "generateStatus",
+        `Ключ создан:\nСерия: ${result.series}\nНомер: ${result.number}\nИмя: ${result.accountNameFirst}\nДата выдачи: ${result.giveDate || ""}\nКем выдан: ${result.givePlace || ""}\nПол: ${sexLabels[result.sex] || result.sex || ""}`
+      );
+
+      await loadKeys();
+    } catch (error) {
+      setStatus("generateStatus", error.message, true);
+    }
+  }
+
+  async function loadKeys() {
+    setStatus("keysStatus", "Загрузка ключей...");
+
+    try {
+      const keys = await apiFetch("/api/keys");
+
+      if (!keys || keys.length === 0) {
+        document.getElementById("keysTable").innerHTML = "";
+        setStatus("keysStatus", "Ключей пока нет");
+        return;
+      }
+
+      const rows = keys.map(key => `
+        <tr>
+          <td>${escapeHtml(key.id)}</td>
+          <td>${escapeHtml(key.series)}</td>
+          <td>${escapeHtml(key.number)}</td>
+          <td>${escapeHtml([key.accountNameLast, key.accountNameFirst, key.accountNameMiddle].filter(Boolean).join(" "))}</td>
+          <td>${escapeHtml(formatDateOnly(key.birthDate))}</td>
+          <td>${escapeHtml(formatDateOnly(key.giveDate))}</td>
+          <td>${escapeHtml(key.givePlace || "")}</td>
+          <td>${escapeHtml(sexLabels[key.sex] || key.sex || "")}</td>
+          <td>${key.isActivated ? "Да" : "Нет"}</td>
+          <td>${escapeHtml(formatDate(key.createdAt))}</td>
+        </tr>
+      `).join("");
+
+      document.getElementById("keysTable").innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Серия</th>
+                <th>Номер</th>
+                <th>ФИО</th>
+                <th>Дата рождения</th>
+                <th>Дата выдачи</th>
+                <th>Кем выдан</th>
+                <th>Пол</th>
+                <th>Активирован</th>
+                <th>Создан</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+      setStatus("keysStatus", `Загружено ключей: ${keys.length}`);
+    } catch (error) {
+      setStatus("keysStatus", error.message, true);
+    }
+  }
+
+  async function loadUsers() {
+    setStatus("usersStatus", "Загрузка пользователей...");
+
+    try {
+      const users = await apiFetch("/api/admin/users");
+
+      if (!users || users.length === 0) {
+        document.getElementById("usersTable").innerHTML = "";
+        setStatus("usersStatus", "Пользователей пока нет");
+        return;
+      }
+
+      const rows = users.map(user => `
+        <tr>
+          <td>${escapeHtml(user.id)}</td>
+          <td>${escapeHtml(user.type)}</td>
+          <td>${escapeHtml(user.series)}</td>
+          <td>${escapeHtml(user.number)}</td>
+          <td>${escapeHtml(fullName(user) || user.firstName || "")}</td>
+          <td>${escapeHtml(formatDateOnly(user.birthDate))}</td>
+          <td>${escapeHtml(user.weightKg ?? "")}</td>
+          <td>${escapeHtml(formatDate(user.createdAt))}</td>
+          <td>${escapeHtml(formatDate(user.lastLoginAt))}</td>
+          <td>
+            <button class="small-button" data-role-series="${escapeHtml(user.series)}" data-role-number="${escapeHtml(user.number)}">
+              Выбрать
+            </button>
+          </td>
+        </tr>
+      `).join("");
+
+      document.getElementById("usersTable").innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Тип</th>
+                <th>Серия</th>
+                <th>Номер</th>
+                <th>ФИО</th>
+                <th>Дата рождения</th>
+                <th>Вес</th>
+                <th>Создан</th>
+                <th>Последний вход</th>
+                <th>Роли</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+      setStatus("usersStatus", `Загружено пользователей: ${users.length}`);
+    } catch (error) {
+      setStatus("usersStatus", error.message, true);
+    }
+  }
+
+  async function activateAllAccessKeys() {
+    const confirmed = confirm("Активировать все ключи доступа и создать пользователей по ним?");
+
+    if (!confirmed) {
+      return;
+    }
+
+    setStatus("activateKeysStatus", "Активация ключей доступа...");
+
+    try {
+      const result = await apiFetch("/api/admin/keys/activate-all", {
+        method: "POST"
+      });
+
+      setStatus(
+        "activateKeysStatus",
+        `Готово. Создано пользователей: ${result.created}. Привязано существующих: ${result.linked}. Пропущено: ${result.skipped}. Всего ключей: ${result.total}.`
+      );
+
+      await Promise.allSettled([
+        loadKeys(),
+        loadUsers()
+      ]);
+    } catch (error) {
+      setStatus("activateKeysStatus", error.message, true);
+    }
+  }
+
+  function fillRoleUser(userSeries, userNumbers) {
+    document.getElementById("roleUserSeriesInput").value = userSeries || "";
+    document.getElementById("roleUserNumbersInput").value = userNumbers || "";
+    setStatus("rolesStatus", `Выбран пользователь: ${userSeries}-${userNumbers}`);
+    loadRolesForSelectedUser();
+  }
+
+  async function generateUserRole() {
+    setStatus("rolesStatus", "Создание удостоверения...");
+
+    const { userSeries, userNumbers } = getRoleIdentity();
+    const post = Number(document.getElementById("rolePostInput").value);
+    const postName = document.getElementById("rolePostNameInput").value.trim();
+    const givePlace = document.getElementById("roleGivePlaceInput").value.trim();
+    const startDate = document.getElementById("roleStartDateInput").value;
+
+    if (!userSeries || !userNumbers) {
+      setStatus("rolesStatus", "Введите серию и номер пользователя", true);
+      return;
+    }
+
+    if (!startDate) {
+      setStatus("rolesStatus", "Выберите дату выдачи", true);
+      return;
+    }
+
+    try {
+      const result = await apiFetch("/api/admin/roles/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          userSeries,
+          userNumbers,
+          post,
+          postName: postName || null,
+          givePlace: givePlace || null,
+          startDate
+        })
+      });
+
+      setStatus(
+        "rolesStatus",
+        `Удостоверение создано:\nНомер: ${result.number}\nДолжность: ${result.postName}\nПользователь: ${result.userSeries}-${result.userNumbers}`
+      );
+
+      await loadRolesForSelectedUser();
+    } catch (error) {
+      setStatus("rolesStatus", error.message, true);
+    }
+  }
+
+  async function loadRolesForSelectedUser() {
+    const { userSeries, userNumbers } = getRoleIdentity();
+
+    if (!userSeries || !userNumbers) {
+      setStatus("rolesStatus", "Введите серию и номер пользователя", true);
+      return;
+    }
+
+    await loadRoles(userSeries, userNumbers);
+  }
+
+  async function loadRoles(userSeries = "", userNumbers = "") {
+    const isFiltered = Boolean(userSeries && userNumbers);
+    const suffix = isFiltered
+      ? `?userSeries=${encodeURIComponent(userSeries)}&userNumbers=${encodeURIComponent(userNumbers)}`
+      : "";
+
+    setStatus("rolesStatus", isFiltered ? "Загрузка удостоверений пользователя..." : "Загрузка всех удостоверений...");
+
+    try {
+      const roles = await apiFetch(`/api/admin/roles${suffix}`);
+
+      if (!roles || roles.length === 0) {
+        document.getElementById("rolesTable").innerHTML = "";
+        setStatus("rolesStatus", isFiltered ? "У пользователя пока нет удостоверений" : "Удостоверений пока нет");
+        return;
+      }
+
+      renderRoles(roles);
+      setStatus("rolesStatus", `Загружено удостоверений: ${roles.length}`);
+    } catch (error) {
+      setStatus("rolesStatus", error.message, true);
+    }
+  }
+
+  function renderRoles(roles) {
+    const rows = roles.map(role => `
+      <tr>
+        <td>${escapeHtml(role.id)}</td>
+        <td>${escapeHtml(role.number)}</td>
+        <td>${escapeHtml(role.userSeries)}-${escapeHtml(role.userNumbers)}</td>
+        <td>${escapeHtml(role.postName || postLabels[role.postValue] || role.post)}</td>
+        <td>${escapeHtml(postLabels[role.postValue] || postLabels[role.post] || role.post)}</td>
+        <td>${escapeHtml(role.givePlace || "")}</td>
+        <td>${escapeHtml(formatDateOnly(role.startDate))}</td>
+        <td>
+          <button class="small-button secondary" data-role-series="${escapeHtml(role.userSeries)}" data-role-number="${escapeHtml(role.userNumbers)}">
+            Выбрать
+          </button>
+          <button class="small-button danger" data-role-delete="${Number(role.id)}">
+            Удалить
+          </button>
+        </td>
+      </tr>
+    `).join("");
+
+    document.getElementById("rolesTable").innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Номер</th>
+              <th>Пользователь</th>
+              <th>Название</th>
+              <th>Тип</th>
+              <th>Выдано</th>
+              <th>Дата</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  async function removeUserRoles() {
+    const { userSeries, userNumbers } = getRoleIdentity();
+
+    if (!userSeries || !userNumbers) {
+      setStatus("rolesStatus", "Введите серию и номер пользователя", true);
+      return;
+    }
+
+    const confirmed = confirm(`Удалить все роли пользователя ${userSeries}-${userNumbers}?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setStatus("rolesStatus", "Удаление ролей...");
+
+    try {
+      const result = await apiFetch("/api/admin/roles/remove", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          userSeries,
+          userNumbers,
+          post: 0,
+          startDate: new Date().toISOString().slice(0, 10)
+        })
+      });
+
+      setStatus(
+        "rolesStatus",
+        `Готово: ${result.message}\nУдалено: ${result.deleted}\nПользователь: ${result.userSeries}-${result.userNumbers}`
+      );
+
+      await loadRolesForSelectedUser();
+    } catch (error) {
+      setStatus("rolesStatus", error.message, true);
+    }
+  }
+
+  async function removeRoleById(id) {
+    const confirmed = confirm(`Удалить удостоверение #${id}?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setStatus("rolesStatus", "Удаление удостоверения...");
+
+    try {
+      await apiFetch(`/api/admin/roles/${id}`, {
+        method: "DELETE"
+      });
+
+      const { userSeries, userNumbers } = getRoleIdentity();
+
+      if (userSeries && userNumbers) {
+        await loadRolesForSelectedUser();
+      } else {
+        await loadRoles();
+      }
+    } catch (error) {
+      setStatus("rolesStatus", error.message, true);
+    }
+  }
+
+
+  async function createReward() {
+    setStatus("rewardsStatus", "Создание награды...");
+
+    const kind = Number(document.getElementById("rewardKindInput").value);
+    const userSeries = document.getElementById("rewardUserSeriesInput").value.trim();
+    const userNumbers = document.getElementById("rewardUserNumbersInput").value.trim();
+    const fullName = document.getElementById("rewardFullNameInput").value.trim();
+    const eventType = document.getElementById("rewardEventTypeInput").value.trim();
+    const eventName = document.getElementById("rewardEventNameInput").value.trim();
+    const place = document.getElementById("rewardPlaceInput").value.trim();
+    const date = document.getElementById("rewardDateInput").value;
+
+    if (!eventName) {
+      setStatus("rewardsStatus", "Введите название события", true);
+      return;
+    }
+
+    if ((!userSeries || !userNumbers) && !fullName) {
+      setStatus("rewardsStatus", "Укажите пользователя по серии/номеру или заполните ФИО", true);
+      return;
+    }
+
+    try {
+      const result = await apiFetch("/api/admin/rewards", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          kind,
+          userSeries: userSeries || null,
+          userNumbers: userNumbers || null,
+          fullName: fullName || null,
+          eventType: eventType || null,
+          eventName,
+          place: place || null
+        })
+      });
+
+      setStatus(
+        "rewardsStatus",
+        `Награда добавлена: #${result.id}\nФИО: ${result.fullName}\nСобытие: ${result.eventName}`
+      );
+    } catch (error) {
+      setStatus("rewardsStatus", error.message, true);
+    }
+  }
+  async function cleanupGuests() {
+    const confirmed = confirm("Точно очистить старых гостей?");
+
+    if (!confirmed) {
+      return;
+    }
+
+    setStatus("cleanupStatus", "Очистка гостей...");
+
+    try {
+      const result = await apiFetch("/api/admin/cleanup-guests", {
+        method: "DELETE"
+      });
+
+      const skipped = result.skipped ? ` Сохранено из-за связанных записей: ${result.skipped}.` : "";
+      setStatus("cleanupStatus", `Готово. Удалено гостей: ${result.deleted}.${skipped}`);
+      await loadUsers();
+    } catch (error) {
+      setStatus("cleanupStatus", error.message, true);
+    }
+  }
+
+  async function syncBirthdays() {
+    const confirmed = confirm("Синхронизировать дни рождения пользователей с календарем?");
+
+    if (!confirmed) {
+      return;
+    }
+
+    setStatus("birthdaySyncStatus", "Синхронизация дней рождений...");
+
+    try {
+      const result = await apiFetch("/api/admin/calendar/sync-birthdays", {
+        method: "POST"
+      });
+
+      setStatus(
+        "birthdaySyncStatus",
+        `Готово. Создано: ${result.created}. Пропущено: ${result.skipped}`
+      );
+    } catch (error) {
+      setStatus("birthdaySyncStatus", error.message, true);
+    }
+  }
+  function renderSystemPushRecipients() {
+    const element = document.getElementById("systemPushRecipientsText");
+
+    if (!element) {
+      return;
+    }
+
+    if (systemPushRecipients.length === 0) {
+      element.textContent = "Получатели не выбраны.";
+      return;
+    }
+
+    element.textContent = "Получатели: " + systemPushRecipients
+      .map(recipient => `${recipient.userSeries}-${recipient.userNumbers}`)
+      .join(", ");
+  }
+
+  function addSystemPushRecipient() {
+    const userSeries = document.getElementById("systemPushUserSeriesInput").value.trim();
+    const userNumbers = document.getElementById("systemPushUserNumbersInput").value.trim();
+
+    if (!userSeries || !userNumbers) {
+      setStatus("systemPushStatus", "Введите серию и номер пользователя", true);
+      return;
+    }
+
+    const exists = systemPushRecipients.some(recipient =>
+      recipient.userSeries === userSeries && recipient.userNumbers === userNumbers);
+
+    if (!exists) {
+      systemPushRecipients.push({ userSeries, userNumbers });
+    }
+
+    document.getElementById("systemPushUserSeriesInput").value = "";
+    document.getElementById("systemPushUserNumbersInput").value = "";
+    setStatus("systemPushStatus", "Получатель добавлен");
+    renderSystemPushRecipients();
+  }
+
+  function clearSystemPushRecipients() {
+    systemPushRecipients.length = 0;
+    renderSystemPushRecipients();
+    setStatus("systemPushStatus", "Список получателей очищен");
+  }
+
+  async function sendSystemPush() {
+    const title = document.getElementById("systemPushTitleInput").value.trim();
+    const description = document.getElementById("systemPushDescriptionInput").value.trim();
+    const sendToAll = document.getElementById("systemPushAllInput").value === "true";
+
+    if (!title) {
+      setStatus("systemPushStatus", "Введите название уведомления", true);
+      return;
+    }
+
+    if (!description) {
+      setStatus("systemPushStatus", "Введите описание уведомления", true);
+      return;
+    }
+
+    if (!sendToAll && systemPushRecipients.length === 0) {
+      setStatus("systemPushStatus", "Добавьте хотя бы одного получателя или выберите отправку всем", true);
+      return;
+    }
+
+    const confirmed = confirm(sendToAll
+      ? "Отправить системное уведомление всем пользователям?"
+      : `Отправить системное уведомление выбранным пользователям: ${systemPushRecipients.length}?`);
+
+    if (!confirmed) {
+      return;
+    }
+
+    setStatus("systemPushStatus", "Отправка системного уведомления...");
+
+    try {
+      const result = await apiFetch("/api/admin/push/system", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          title,
+          description,
+          sendToAll,
+          recipients: sendToAll ? [] : systemPushRecipients
+        })
+      });
+
+      setStatus(
+        "systemPushStatus",
+        `Готово. Пользователей: ${result.targetUsers}. Подписок: ${result.subscriptions}. Отправлено: ${result.sent}. Ошибок: ${result.failed}`
+      );
+    } catch (error) {
+      setStatus("systemPushStatus", error.message, true);
+    }
+  }
+
+  async function loadAll() {
+    await Promise.allSettled([
+      loadKeys(),
+      loadUsers(),
+      loadRoles()
+    ]);
+  }
+
+  document.addEventListener("click", event => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    if (button.hasAttribute("data-role-series")) {
+      fillRoleUser(button.dataset.roleSeries, button.dataset.roleNumber);
+    } else if (button.hasAttribute("data-role-delete")) {
+      removeRoleById(Number(button.dataset.roleDelete));
+    }
+  });
+
+  document.getElementById("adminLogin").addEventListener("submit", event => {
+    event.preventDefault();
+    const key = document.getElementById("adminKeyInput").value.trim();
+    if (key) void openAdmin(key);
+    else setText("authStatus", "Введите ключ администратора.");
+  });
+
+  window.addEventListener("load", () => {
+    const savedKey = getAdminKey();
+
+    const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Moscow" }).format(new Date());
+    document.getElementById("roleStartDateInput").value = today;
+    document.getElementById("rewardDateInput").value = today;
+    renderSystemPushRecipients();
+
+    if (savedKey) void openAdmin(savedKey);
+  });
+</script>
+
+</body>
+</html>
+
+

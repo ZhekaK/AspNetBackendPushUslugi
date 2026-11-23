@@ -10,6 +10,14 @@ public static class PushEndpoints
 {
     public static void MapPushEndpoints(this WebApplication app)
     {
+        app.MapGet("/api/push/public-key", (IConfiguration config) =>
+        {
+            var publicKey = config["Vapid:PublicKey"];
+            return string.IsNullOrWhiteSpace(publicKey)
+                ? Results.NotFound(new { message = "Web Push is not configured" })
+                : Results.Ok(new { publicKey });
+        }).RequireAuthorization();
+
         app.MapPost("/api/push/subscribe", async (
             SubscribePushRequest request,
             ClaimsPrincipal claimsUser,

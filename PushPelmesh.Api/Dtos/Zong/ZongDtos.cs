@@ -16,6 +16,7 @@ public class ZongRoomListItemDto
     public string Name { get; set; } = "";
     public int MaxPlayers { get; set; }
     public int PlayerCount { get; set; }
+    public bool IsMember { get; set; }
     public int TargetScore { get; set; }
     public string Status { get; set; } = "";
     public bool HasPassword { get; set; }
@@ -24,6 +25,7 @@ public class ZongRoomListItemDto
 public class ZongRoomDto
 {
     public int Id { get; set; }
+    public string Version { get; set; } = "";
     public string Name { get; set; } = "";
     public int MaxPlayers { get; set; }
     public int TargetScore { get; set; }

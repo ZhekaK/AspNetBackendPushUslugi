@@ -323,7 +323,7 @@ public static class MessengerEndpoints
                     {
                         // Empty URL lets the service worker open its own scope, including
                         // deployments hosted below the domain root.
-                        await pushSender.SendAsync(subscription, title, body, "");
+                        await pushSender.SendAsync(subscription, title, body, $"/#messenger/{id}");
                     }
                     catch (Exception exception)
                     {
@@ -355,17 +355,14 @@ public static class MessengerEndpoints
         db.ChatParticipants.AnyAsync(x => x.ChatRoomId == chatId && x.UserId == userId);
 
     private static string DisplayName(string first, string? middle, string? last) =>
-        string.Join(" ", new[] { last, first, middle }.Where(x => !string.IsNullOrWhiteSpace(x)));
-
-    private static string MessageSenderName(string first, string? middle) =>
-        string.Join(" ", new[] { first, middle }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        string.Join(" ", new[] { middle, first, last }.Where(x => !string.IsNullOrWhiteSpace(x)));
 
     private static object ToMessage(ChatMessage message, int chatId) => new
     {
         id = message.Id,
         chatId,
         senderUserId = message.SenderUserId,
-        senderName = MessageSenderName(message.Sender.FirstName, message.Sender.MiddleName),
+        senderName = DisplayName(message.Sender.FirstName, message.Sender.MiddleName, message.Sender.LastName),
         text = message.Text,
         createdAt = message.CreatedAt
     };

@@ -22,12 +22,13 @@ public static class VoteEndpoints
             if (context == null)
                 return Results.Unauthorized();
 
-            var polls = await db.VotePolls
+            var today = GetToday();
+            var polls = await db.VotePolls.AsNoTracking().AsSplitQuery()
                 .Include(x => x.Options.OrderBy(option => option.SortOrder))
-                    .ThenInclude(option => option.Ballots)
                 .Include(x => x.Ballots)
-                .OrderBy(x => x.EndDate < GetToday())
+                .OrderBy(x => x.EndDate < today)
                 .ThenByDescending(x => x.CreatedAt)
+                .ThenByDescending(x => x.Id)
                 .ToListAsync();
 
             var visiblePolls = polls
@@ -76,7 +77,8 @@ public static class VoteEndpoints
             CreateVotePollRequest request,
             ClaimsPrincipal claimsUser,
             AppDbContext db,
-            WebPushSenderService pushSender) =>
+            WebPushSenderService pushSender,
+            ILoggerFactory loggerFactory) =>
         {
             var context = await GetUserContextAsync(claimsUser, db);
 
@@ -108,6 +110,11 @@ public static class VoteEndpoints
             }
 
             var options = NormalizeOptions(request.Options);
+            var title = request.Title.Trim();
+            var description = request.Description?.Trim() ?? "";
+
+            if (title.Length > 256 || description.Length > 2048 || options.Any(option => option.Length > 256))
+                return Results.BadRequest(new { message = "Poll text is too long" });
 
             if (options.Count < 2)
             {
@@ -126,8 +133,8 @@ public static class VoteEndpoints
 
             var poll = new VotePoll
             {
-                Title = request.Title.Trim(),
-                Description = request.Description?.Trim() ?? "",
+                Title = title,
+                Description = description,
                 EndDate = request.EndDate,
                 IsMultipleChoice = request.IsMultipleChoice || request.AllowMultipleChoices,
                 AudienceGroups = audienceGroups,
@@ -145,11 +152,15 @@ public static class VoteEndpoints
                 });
             }
 
-            db.VotePolls.Add(poll);
-            await db.SaveChangesAsync();
+            await using (var transaction = await db.Database.BeginTransactionAsync())
+            {
+                db.VotePolls.Add(poll);
+                await db.SaveChangesAsync();
+                await CreateNotificationsAsync(db, poll);
+                await transaction.CommitAsync();
+            }
 
-            poll = (await LoadPollAsync(db, poll.Id))!;
-            await CreateNotificationsAsync(db, pushSender, poll);
+            await SendNotificationsAsync(db, pushSender, poll, loggerFactory.CreateLogger(nameof(VoteEndpoints)));
 
             return Results.Ok(new VotePollResponse
             {
@@ -169,6 +180,9 @@ public static class VoteEndpoints
             if (context == null)
                 return Results.Unauthorized();
 
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"""SELECT 1 FROM "VotePolls" WHERE "Id" = {id} FOR UPDATE""");
             var poll = await LoadPollAsync(db, id);
 
             if (poll == null)
@@ -242,6 +256,7 @@ public static class VoteEndpoints
             }
 
             await db.SaveChangesAsync();
+            await transaction.CommitAsync();
 
             poll = (await LoadPollAsync(db, id))!;
 
@@ -255,9 +270,8 @@ public static class VoteEndpoints
 
     private static async Task<VotePoll?> LoadPollAsync(AppDbContext db, int id)
     {
-        return await db.VotePolls
+        return await db.VotePolls.AsNoTracking().AsSplitQuery()
             .Include(x => x.Options.OrderBy(option => option.SortOrder))
-                .ThenInclude(option => option.Ballots)
             .Include(x => x.Ballots)
             .FirstOrDefaultAsync(x => x.Id == id);
     }
@@ -272,6 +286,7 @@ public static class VoteEndpoints
 
         int selectedOptionId = selectedOptionIds.FirstOrDefault();
         int totalVotes = poll.Ballots.Count;
+        var votesByOption = poll.Ballots.ToLookup(x => x.VoteOptionId);
 
         return new VotePollDto
         {
@@ -294,7 +309,7 @@ public static class VoteEndpoints
                 .OrderBy(x => x.SortOrder)
                 .Select(option =>
                 {
-                    int votes = option.Ballots.Count;
+                    int votes = votesByOption[option.Id].Count();
 
                     return new VoteOptionDto
                     {
@@ -311,7 +326,6 @@ public static class VoteEndpoints
 
     private static async Task CreateNotificationsAsync(
         AppDbContext db,
-        WebPushSenderService pushSender,
         VotePoll poll)
     {
         var users = await db.Users
@@ -328,14 +342,6 @@ public static class VoteEndpoints
 
         foreach (var user in targetUsers)
         {
-            bool exists = await db.UserModuleNotifications.AnyAsync(x =>
-                x.UserId == user.Id &&
-                x.ModuleKey == ModuleKey &&
-                x.SourceKey == sourceKey);
-
-            if (exists)
-                continue;
-
             db.UserModuleNotifications.Add(new UserModuleNotification
             {
                 UserId = user.Id,
@@ -347,24 +353,38 @@ public static class VoteEndpoints
         }
 
         await db.SaveChangesAsync();
+    }
 
-        var targetUserIds = targetUsers.Select(x => x.Id).ToList();
-        var subscriptions = await db.PushNotificationSubscriptions
-            .Where(x =>
-                x.Platform == PushPlatform.Web &&
-                targetUserIds.Contains(x.UserId))
-            .ToListAsync();
-
-        foreach (var subscription in subscriptions)
+    private static async Task SendNotificationsAsync(
+        AppDbContext db, WebPushSenderService pushSender, VotePoll poll, ILogger logger)
+    {
+        try
         {
-            await pushSender.SendAsync(
-                subscription,
-                "Новое голосование",
-                poll.Title,
-                "/");
-        }
+            var sourceKey = $"vote:{poll.Id}";
+            var recipients = db.UserModuleNotifications
+                .Where(x => x.ModuleKey == ModuleKey && x.SourceKey == sourceKey)
+                .Select(x => x.UserId);
+            var subscriptions = await db.PushNotificationSubscriptions
+                .Where(x => x.Platform == PushPlatform.Web && recipients.Contains(x.UserId))
+                .ToListAsync();
 
-        await db.SaveChangesAsync();
+            foreach (var subscription in subscriptions)
+            {
+                try
+                {
+                    await pushSender.SendAsync(subscription, "Новое голосование", poll.Title, $"/#votes/{poll.Id}");
+                }
+                catch (Exception exception)
+                {
+                    logger.LogWarning(exception, "Failed to send notification for poll {PollId}", poll.Id);
+                }
+            }
+            await db.SaveChangesAsync();
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Failed to process Web Push for poll {PollId}", poll.Id);
+        }
     }
 
     private static async Task<VoteUserContext?> GetUserContextAsync(ClaimsPrincipal claimsUser, AppDbContext db)

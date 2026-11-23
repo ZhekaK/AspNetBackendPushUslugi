@@ -10,6 +10,9 @@ namespace PushPelmesh.Api.Endpoints;
 
 public static class ZongEndpoints
 {
+    private static FormattableString LockRoom(int id) =>
+        $"""SELECT "UpdatedAt" FROM "ZongRooms" WHERE "Id" = {id} FOR UPDATE""";
+
     public static void MapZongEndpoints(this WebApplication app)
     {
         app.MapGet("/api/zong/rooms", async (ClaimsPrincipal claimsUser, AppDbContext db) =>
@@ -28,7 +31,7 @@ public static class ZongEndpoints
 
             return Results.Ok(new ZongRoomsResponse
             {
-                Rooms = rooms.Select(ToListItemDto).ToList()
+                Rooms = rooms.Select(room => ToListItemDto(room, user.Id)).ToList()
             });
         })
         .RequireAuthorization();
@@ -45,8 +48,8 @@ public static class ZongEndpoints
 
             string name = request.Name?.Trim() ?? "";
 
-            if (string.IsNullOrWhiteSpace(name))
-                return Results.BadRequest(new { message = "Room name is required" });
+            if (name.Length is < 1 or > 128)
+                return Results.BadRequest(new { message = "Room name must be 1-128 characters" });
 
             int maxPlayers = Math.Clamp(request.MaxPlayers <= 0 ? 2 : request.MaxPlayers, 2, 8);
             int targetScore = NormalizeTargetScore(request.TargetScore);
@@ -125,6 +128,7 @@ public static class ZongEndpoints
             room = (await LoadRoomAsync(db, id))!;
             return Results.Ok(new ZongRoomResponse { Room = ToDto(room, user.Id) });
         })
+        .SerializeRoomChanges(LockRoom)
         .RequireAuthorization();
 
         app.MapGet("/api/zong/rooms/{id:int}", async (
@@ -187,7 +191,7 @@ public static class ZongEndpoints
             room.RemainingDice = 6;
             room.LastDice = "";
             room.LastRollScore = 0;
-            room.LastRollMessage = "Game started";
+            room.LastRollMessage = "Игра началась";
             room.UpdatedAt = DateTime.UtcNow;
 
             await db.SaveChangesAsync();
@@ -195,6 +199,7 @@ public static class ZongEndpoints
             room = (await LoadRoomAsync(db, id))!;
             return Results.Ok(new ZongRoomResponse { Room = ToDto(room, user.Id) });
         })
+        .SerializeRoomChanges(LockRoom)
         .RequireAuthorization();
 
         app.MapPost("/api/zong/rooms/{id:int}/roll", async (
@@ -244,6 +249,7 @@ public static class ZongEndpoints
             room = (await LoadRoomAsync(db, id))!;
             return Results.Ok(new ZongRoomResponse { Room = ToDto(room, user.Id) });
         })
+        .SerializeRoomChanges(LockRoom)
         .RequireAuthorization();
 
         app.MapPost("/api/zong/rooms/{id:int}/bank", async (
@@ -289,6 +295,7 @@ public static class ZongEndpoints
             room = (await LoadRoomAsync(db, id))!;
             return Results.Ok(new ZongRoomResponse { Room = ToDto(room, user.Id) });
         })
+        .SerializeRoomChanges(LockRoom)
         .RequireAuthorization();
     }
 
@@ -328,7 +335,7 @@ public static class ZongEndpoints
         return null;
     }
 
-    private static ZongRoomListItemDto ToListItemDto(ZongRoom room)
+    private static ZongRoomListItemDto ToListItemDto(ZongRoom room, int userId)
     {
         return new ZongRoomListItemDto
         {
@@ -336,6 +343,7 @@ public static class ZongEndpoints
             Name = room.Name,
             MaxPlayers = room.MaxPlayers,
             PlayerCount = room.Players.Count,
+            IsMember = room.Players.Any(player => player.UserId == userId),
             TargetScore = room.TargetScore,
             Status = room.Status.ToString(),
             HasPassword = !string.IsNullOrWhiteSpace(room.PasswordHash)
@@ -350,6 +358,7 @@ public static class ZongEndpoints
         return new ZongRoomDto
         {
             Id = room.Id,
+            Version = GameRoomMutation.VersionOf(room.UpdatedAt),
             Name = room.Name,
             MaxPlayers = room.MaxPlayers,
             TargetScore = room.TargetScore,

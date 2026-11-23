@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#005cb9">
+  <meta name="description" content="Календарь, общение, голосования и игры сообщества Пыш-Услуг.">
+  <title>Пыш-Услуги</title>
+  <link rel="icon" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/assets/portal/app-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body>
+  <a class="skip" href="#content">К содержимому</a>
+  <div class="layout">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="#home"><img src="/favicon.png" width="38" height="38" alt=""><span>Пыш<span class="brand-accent">-Услуги</span></span></a>
+        <button id="menu" class="menu-toggle" type="button" aria-controls="catalog-menu" aria-expanded="false">
+          <span class="graphic" style="--graphic: url('/assets/portal/menu.png')" aria-hidden="true"></span> <span>Сервисы</span>
+        </button>
+        <div id="account" class="account"></div>
+      </div>
+      <div id="catalog-menu" class="catalog-menu" hidden><nav id="navigation" aria-label="Сервисы"></nav></div>
+    </header>
+    <a class="menu-scrim" href="#home" tabindex="-1" aria-hidden="true" hidden></a>
+    <main id="content" tabindex="-1"><p class="empty" role="status">Загрузка…</p></main>
+    <footer class="footer"><div class="footer-inner">
+      <a href="#home">Пыш-Услуги</a>
+      <div class="footer-actions">
+        <button id="install-app" data-install-app class="btn secondary" type="button">Установить приложение</button>
+        <a href="/admin/">Панель администратора <span aria-hidden="true">↗</span></a>
+      </div>
+    </div></footer>
+  </div>
+  <dialog id="install-help" class="panel install-help" aria-labelledby="install-title">
+    <h2 id="install-title">Установить «Пыш-Услуги»</h2>
+    <p id="install-steps"></p>
+    <form method="dialog"><button class="btn" type="submit" autofocus>Понятно</button></form>
+  </dialog>
+  <div id="announcement" class="toast" role="status" aria-live="polite" hidden></div>
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

@@ -85,7 +85,7 @@ public class CalendarEventNotificationService
                     subscription,
                     GetNotificationTitle(notificationJob),
                     GetNotificationBody(notificationJob),
-                    "/");
+                    $"/#calendar/{calendarEvent.Date:yyyyMMdd}");
 
                 if (success)
                 {

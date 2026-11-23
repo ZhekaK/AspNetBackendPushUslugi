@@ -16,6 +16,7 @@ public class DurakRoomListItemDto
     public string Name { get; set; } = "";
     public int MaxPlayers { get; set; }
     public int PlayerCount { get; set; }
+    public bool IsMember { get; set; }
     public int CardCount { get; set; }
     public string Status { get; set; } = "";
     public bool HasPassword { get; set; }
@@ -24,6 +25,7 @@ public class DurakRoomListItemDto
 public class DurakRoomDto
 {
     public int Id { get; set; }
+    public string Version { get; set; } = "";
     public string Name { get; set; } = "";
     public int MaxPlayers { get; set; }
     public int CardCount { get; set; }
@@ -37,6 +39,7 @@ public class DurakRoomDto
     public bool IsCreator { get; set; }
     public bool CanStart { get; set; }
     public bool CanAttack { get; set; }
+    public int AttackLimit { get; set; }
     public bool CanDefend { get; set; }
     public bool CanTransfer { get; set; }
     public bool CanTake { get; set; }

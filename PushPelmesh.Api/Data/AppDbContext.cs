@@ -10,6 +10,9 @@ public class AppDbContext : DbContext
     public DbSet<AccessKey> AccessKeys => Set<AccessKey>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<XoxiSave> XoxiSaves => Set<XoxiSave>();
+    public DbSet<XoxiRoom> XoxiRooms => Set<XoxiRoom>();
+    public DbSet<XoxiRoomAdmission> XoxiRoomAdmissions => Set<XoxiRoomAdmission>();
+    public DbSet<IdentityPhoto> IdentityPhotos => Set<IdentityPhoto>();
     public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
     public DbSet<CalendarEventNotification> CalendarEventNotifications => Set<CalendarEventNotification>();
     public DbSet<CalendarEventPushDelivery> CalendarEventPushDeliveries => Set<CalendarEventPushDelivery>();
@@ -38,6 +41,30 @@ public class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<IdentityPhoto>(entity =>
+        {
+            entity.HasKey(x => x.UserId);
+            entity.HasOne(x => x.User).WithOne().HasForeignKey<IdentityPhoto>(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<XoxiRoom>(entity =>
+        {
+            entity.Property(x => x.Name).HasMaxLength(80);
+            entity.HasIndex(x => x.UpdatedAt);
+            entity.HasOne(x => x.Owner).WithMany().HasForeignKey(x => x.OwnerUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Opponent).WithMany().HasForeignKey(x => x.OpponentUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<XoxiRoomAdmission>(entity =>
+        {
+            entity.HasKey(x => new { x.RoomId, x.UserId });
+            entity.HasOne<XoxiRoom>().WithMany().HasForeignKey(x => x.RoomId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<XoxiSave>(entity =>
         {
