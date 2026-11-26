@@ -75,6 +75,70 @@ const { data: reopened } = await post('/api/auth/login-by-name', { firstName: '�
 assert.equal(reopened.user.id, member.user.id);
 await request('/api/user/profile', { token: reopened.token });
 
+const candidatePath = '/api/candidates';
+const adminCandidatePath = '/api/admin/candidates';
+const identity = {
+  series: 'CAND', firstName: 'Ирина', lastName: 'Тестовая', middleName: 'Олеговна', sex: 1,
+  giveDate: '2026-11-25', givePlace: 'Испытательная канцелярия'
+};
+await request(adminCandidatePath, { token: president.token, status: 401 });
+await post(adminCandidatePath, identity, { status: 401 });
+await post(adminCandidatePath, { ...identity, sex: 30 }, { admin: true, status: 400 });
+const { data: certificate } = await post(adminCandidatePath, identity, { admin: true });
+assert.equal(certificate.series, identity.series);
+assert.match(certificate.number, /^[1-9]\d{4}$/);
+const { data: registry } = await request(candidatePath, { token: member.token });
+assert.deepEqual(registry.find(row => row.lastName === identity.lastName), {
+  firstName: identity.firstName, lastName: identity.lastName, middleName: identity.middleName,
+  sex: 'Women', giveDate: identity.giveDate, givePlace: identity.givePlace
+});
+assert.equal((await request(adminCandidatePath, { admin: true })).data.find(row => row.number === certificate.number).isActivated, false);
+assert.ok((await request('/api/keys', { admin: true })).data.every(key => key.number !== certificate.number));
+const candidateLogins = await Promise.all([1, 2].map(() => post('/api/auth/login-by-key', certificate)));
+const candidate = candidateLogins[0].data;
+assert.equal(candidate.user.type, 'Candidate');
+assert.equal(candidateLogins[1].data.user.id, candidate.user.id);
+const profile = (await request('/api/user/profile', { token: candidate.token })).data;
+assert.equal(profile.number, certificate.number);
+assert.equal(profile.givePlace, identity.givePlace);
+assert.equal(profile.birthDate, null);
+assert.equal((await request(adminCandidatePath, { admin: true })).data.find(row => row.number === certificate.number).isActivated, true);
+assert.equal((await post('/api/auth/login-by-name', { firstName: identity.firstName, rememberToken: candidate.rememberToken })).data.user.type, 'Candidate');
+await request(candidatePath, { status: 401 });
+const nominations = `${candidatePath}/proposals`;
+const proposal = { fullName: 'Новый Тестовый Кандидат', reason: 'Тестовое предложение от гражданина.' };
+for (const token of [guest.token, candidate.token]) {
+  await request(candidatePath, { token, status: 403 });
+  await post(nominations, proposal, { token, status: 403 });
+}
+for (const path of ['/api/rewards/championships', '/api/rewards/government-awards']) {
+  await request(path, { token: guest.token, status: 403 });
+  await request(path, { token: candidate.token });
+}
+for (const token of [member.token, minister.token, candidate.token, guest.token]) {
+  await request(nominations, { token, status: 403 });
+  await request(`${nominations}/pending`, { token, status: 403 });
+}
+await post(nominations, { ...proposal, reason: ' ' }, { token: member.token, status: 400 });
+const pendingBefore = (await request(`${nominations}/pending`, { token: president.token })).data;
+await post(nominations, proposal, { token: member.token, status: 204 });
+const pending = (await request(`${nominations}/pending`, { token: president.token })).data;
+assert.equal(pending.count, pendingBefore.count + 1);
+assert.ok(pending.latestId > pendingBefore.latestId);
+const review = (await request(nominations, { token: president.token })).data.find(row => row.id === pending.latestId);
+assert.equal(review.reason, proposal.reason);
+assert.equal(review.fullName, proposal.fullName);
+assert.equal(review.author.firstName, 'Участник');
+const decisionPath = `${nominations}/${pending.latestId}/decision`;
+await post(decisionPath, { approved: true }, { token: minister.token, status: 403 });
+const decisions = await Promise.all([true, false].map(approved => post(decisionPath, { approved }, { token: president.token, status: null })));
+assert.deepEqual(decisions.map(result => result.status).sort(), [204, 409]);
+const reviewed = (await request(nominations, { token: president.token })).data.find(row => row.id === pending.latestId);
+assert.equal(reviewed.approved, decisions[0].status === 204);
+assert.ok(reviewed.reviewedAt);
+assert.equal((await request(`${nominations}/pending`, { token: president.token })).data.count, pendingBefore.count);
+console.log('Candidate registry, login, guest restrictions and president-only proposal review passed.');
+
 const votePath = '/api/votes/polls';
 const pollBody = { title: suiteName, endDate: today, options: ['Первый', 'Второй', 'Третий'] };
 await post(votePath, { ...pollBody, title: 'а'.repeat(257) }, { token: member.token, status: 400 });

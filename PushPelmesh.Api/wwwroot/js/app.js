@@ -4,6 +4,7 @@ import { messenger } from './messenger.js';
 import { game } from './games.js';
 import { bill, alcohol, xoxi } from './tools.js';
 import { bindIdentityPhoto } from './identity-photo.js';
+import { candidates, candidateFullName, sexLabel, showCandidateReview } from './candidates.js';
 
 const modules = {
   home: { name: 'Главная', guest: true, render: home },
@@ -11,16 +12,17 @@ const modules = {
   messenger: { name: 'Мессенджер Пыш', text: 'Общий чат, личные сообщения и группы', render: messenger },
   votes: { name: 'Голосования', text: 'Опросы и результаты', key: 'VoteModule', render: votes },
   cinema: { name: 'Кинотоп', text: 'Просмотры и оценки фильмов', guest: true, render: cinema },
-  rewards: { name: 'Зал славы', text: 'Чемпионаты и государственные награды', guest: true, render: rewards },
+  rewards: { name: 'Зал славы', text: 'Чемпионаты и государственные награды', render: rewards },
+  candidates: { name: 'Реестр кандидатов', text: 'Выданные удостоверения и новые предложения', citizen: true, render: candidates },
   durak: { name: 'Дурак', text: 'Подкидная и переводная игра', guest: true, render: context => game(context, 'durak') },
   zong: { name: 'Зонг', text: 'Игра в кости на очки', guest: true, render: context => game(context, 'zong') },
   xoxi: { name: 'ХОХИ', text: 'Четыре фигуры в ряд', guest: true, render: xoxi },
-  bill: { name: 'Калькулятор министров', text: 'Разделите счёт с учётом льготы', guest: true, render: bill },
+  bill: { name: 'Калькулятор министров', text: 'Разделите счёт с учётом льготы', render: bill },
   alcohol: { name: 'Алкометр', text: 'Приблизительный расчёт по напиткам', render: alcohol },
   profile: { name: 'Профиль', guest: true, render: profile }
 };
 const groups = [
-  ['Сообщество', ['calendar', 'messenger', 'votes', 'cinema', 'rewards']],
+  ['Сообщество', ['calendar', 'messenger', 'votes', 'cinema', 'rewards', 'candidates']],
   ['Игры', ['durak', 'zong', 'xoxi']],
   ['Инструменты', ['bill', 'alcohol']]
 ];
@@ -32,6 +34,7 @@ const menu = document.querySelector('#menu');
 const catalogMenu = document.querySelector('#catalog-menu');
 const menuScrim = document.querySelector('.menu-scrim');
 const toast = document.querySelector('#announcement');
+const candidateReviewDialog = document.querySelector('#candidate-review');
 const workerRegistration = 'serviceWorker' in navigator
   ? navigator.serviceWorker.register('/service-worker.js').catch(() => null)
   : Promise.resolve(null);
@@ -121,6 +124,7 @@ async function api(path, { method = 'GET', body, signal, version, auth = true, r
       storeSession('', rememberToken);
       user = undefined;
       roles = [];
+      if (candidateReviewDialog?.open) candidateReviewDialog.close();
       render();
     }
     throw new ApiError(response.status, data);
@@ -145,12 +149,42 @@ function notify(text) {
 }
 
 function graphic(key) {
-  const path = key === 'zong' ? '/assets/dice/5.png' : `/assets/portal/${key}.png`;
+  const icon = key === 'candidates' ? 'person' : key;
+  const path = key === 'zong' ? '/assets/dice/5.png' : `/assets/portal/${icon}.png`;
   return `<span class="graphic" style="--graphic: url('${path}')" aria-hidden="true"></span>`;
 }
 
 function unreadCount(key) {
   return key === 'messenger' ? messengerUnread : unread[modules[key].key]?.count || 0;
+}
+
+function isCitizen() {
+  return Boolean(user?.series && user.number && (user.type === 'KeyUser' || user.type === 'Admin'));
+}
+
+function canReviewCandidates() {
+  return isCitizen() && roles.some(role => role.roleType === 'President');
+}
+
+function reviewCandidates() {
+  if (!candidateReviewDialog || !canReviewCandidates()) return;
+  const owner = user;
+  const seenKey = `push-uslugi.candidate-review.${owner.id}`;
+  showCandidateReview(candidateReviewDialog, api, latestId => {
+    if (latestId > Number(sessionStorage.getItem(seenKey) || 0)) sessionStorage.setItem(seenKey, String(latestId));
+  });
+}
+
+async function refreshCandidateReview(owner) {
+  if (!candidateReviewDialog || !canReviewCandidates() || document.querySelector('dialog[open]')) return;
+  try {
+    const { latestId } = await api('/api/candidates/proposals/pending');
+    if (user !== owner || document.hidden || document.querySelector('dialog[open]')) return;
+    const seen = Number(sessionStorage.getItem(`push-uslugi.candidate-review.${owner.id}`) || 0);
+    if (latestId > seen) reviewCandidates();
+  } catch {
+    // The next refresh can check for new proposals again.
+  }
 }
 
 function updateNavigation() {
@@ -181,6 +215,7 @@ function updateHeader() {
 async function refreshUnread() {
   const owner = user;
   if (!owner || owner.type === 'Guest' || currentPage === 'login' || document.hidden) return;
+  void refreshCandidateReview(owner);
   const [notifications, chats] = await Promise.allSettled([
     api('/api/module-notifications/unread'), api('/api/messenger/chats')
   ]);
@@ -218,13 +253,17 @@ function render(focus = false) {
     login(page === 'login' ? 'home' : location.hash.slice(1));
     return;
   }
+  if (module.citizen && !isCitizen()) {
+    main.innerHTML = title(module.name) + '<section class="panel"><p>Для просмотра реестра нужно удостоверение гражданина.</p></section>';
+    return;
+  }
   main.innerHTML = '<p class="empty" role="status">Загрузка…</p>';
   const pageToken = token;
   const context = {
     main, user, roles, id: /^\d+$/.test(id || '') ? Number(id) : null, segment: id, signal, notify,
     api: (path, options) => api(path, { ...options, signal }),
     saveXoxiProgress: body => api('/api/xoxi/save', { method: 'PUT', body, requestToken: pageToken }),
-    updateNavigation, refreshUnread
+    updateNavigation, refreshUnread, canReviewCandidates: canReviewCandidates(), reviewCandidates
   };
   Promise.resolve().then(() => module.render(context)).then(async () => {
     if (!signal.aborted && module.key && user?.type !== 'Guest') {
@@ -242,7 +281,7 @@ function render(focus = false) {
 async function loadUser() {
   user = await api('/api/user/profile');
   roles = [];
-  if (user.type !== 'Guest' && user.series && user.number) {
+  if (isCitizen()) {
     try {
       roles = (await api('/api/user/role')).roles;
     } catch (error) {
@@ -254,7 +293,9 @@ async function loadUser() {
 
 function login(next = 'home', container = main) {
   const embedded = container !== main;
-  const membership = user?.type === 'Guest' ? 'Этот раздел доступен после входа по удостоверению.' : 'Войдите по серии и номеру удостоверения.';
+  const citizenshipRequired = modules[next.split('/')[0]]?.citizen;
+  const membership = citizenshipRequired ? 'Для просмотра реестра войдите по удостоверению гражданина.'
+    : user?.type === 'Guest' ? 'Этот раздел доступен после входа по удостоверению.' : 'Войдите по серии и номеру удостоверения.';
   container.innerHTML = (embedded ? '' : title('Вход', membership)) + `<section class="${embedded ? '' : 'panel standalone-entry '}stack" aria-label="Вход">
     ${embedded ? `<div class="entry-heading"><span class="entry-icon">${graphic('person')}</span>
       <div><h2>Личный кабинет</h2><p class="meta">${rememberToken ? 'Вход по имени' : 'Вход по удостоверению'}</p></div></div>` : ''}
@@ -350,7 +391,12 @@ function home() {
 function profileDocuments(person, posts) {
   const value = (label, text) => `<div><dt>${label}</dt><dd>${e(text || '—')}</dd></div>`;
   const issued = (date, place) => [date ? dateLabel(date) : '', place].filter(Boolean).join(' · ');
-  const documents = [{
+  const documents = person.type === 'Candidate' ? [{
+    kind: 'candidate', title: 'Удостоверение кандидата', number: [person.series, person.number].join(' '),
+    fields: value('Серия', person.series) + value('Фамилия, имя, отчество', candidateFullName(person)) +
+      value('Пол', sexLabel(person.sex)) + value('Дата выдачи', dateLabel(person.giveDate)) +
+      value('Кем выдано', person.givePlace)
+  }] : [{
     kind: 'personal', title: 'Удостоверение личности', number: [person.series, person.number].filter(Boolean).join(' '),
     fields: value('Фамилия, имя, отчество', fullName(person)) +
       value('Дата рождения', dateLabel(person.birthDate)) + value('Пол', ({ Man: 'Мужской', Women: 'Женский' })[person.sex]) +
@@ -367,16 +413,16 @@ function profileDocuments(person, posts) {
     <dialog class="document-dialog" aria-labelledby="document-name">
       <form method="dialog" class="document-close"><button class="btn secondary" type="submit" autofocus>Закрыть</button></form>
       ${documents.map((document, index) => `<article class="document-card ${document.kind}" data-card="${index}" hidden>
-        <h3>${document.kind === 'personal' ? 'Удостоверение личности' : 'Удостоверение госслужащего'}</h3>
+        <h3>${document.kind === 'role' ? 'Удостоверение госслужащего' : document.title}</h3>
         ${document.kind === 'personal' ? '<img id="identity-photo" alt="Моя фотография" hidden>' : ''}
-        <dl>${value('Номер удостоверения', document.number)}${document.fields}</dl>
+        <dl>${value('Номер удостоверения', document.kind === 'candidate' ? person.number : document.number)}${document.fields}</dl>
       </article>`).join('')}
-      <form id="identity-photo-form" class="stack" hidden>
+      ${person.type === 'Candidate' ? '' : `<form id="identity-photo-form" class="stack" hidden>
         <label>Фотография для удостоверения<input type="file" name="photo" accept="image/*" required></label>
         <div class="actions"><button class="btn" type="submit">Сохранить фото</button>
           <button class="btn secondary" type="button" id="delete-identity-photo" hidden>Удалить фото</button></div>
         ${errorLine}
-      </form>
+      </form>`}
       <span id="document-name" class="sr-only"></span>
     </dialog>
   </section>`;
@@ -384,7 +430,7 @@ function profileDocuments(person, posts) {
 
 async function profile({ api: request, signal }) {
   main.innerHTML = title('Профиль') + `<div class="split">
-    <section class="panel stack"><h2>${user.type === 'Guest' ? 'Гостевой аккаунт' : e(fullName(user))}</h2>
+    <section class="panel stack"><h2>${user.type === 'Guest' ? 'Гостевой аккаунт' : e(user.type === 'Candidate' ? candidateFullName(user) : fullName(user))}</h2>
     ${user.type === 'Guest' ? '<p class="muted">Войдите по удостоверению для доступа к голосованиям и чатам.</p><div><a class="btn" href="#login">Войти по удостоверению</a></div>' :
       profileDocuments(user, roles)}
     <div><button id="logout" class="btn secondary" type="button">Выйти</button></div></section>
@@ -404,6 +450,7 @@ async function profile({ api: request, signal }) {
       notify('Не удалось отключить уведомления в браузере.');
     }
     storeSession('', '');
+    if (candidateReviewDialog?.open) candidateReviewDialog.close();
     user = undefined;
     roles = [];
     unread = {};
@@ -414,14 +461,15 @@ async function profile({ api: request, signal }) {
   const weight = main.querySelector('#weight');
   if (!weight) return;
   const dialog = main.querySelector('.document-dialog');
-  bindIdentityPhoto(dialog, request, signal, notify);
+  const photoForm = dialog.querySelector('#identity-photo-form');
+  if (photoForm) bindIdentityPhoto(dialog, request, signal, notify);
   main.querySelectorAll('[data-document]').forEach(button => {
     button.onclick = () => {
       dialog.querySelector('#document-name').textContent = button.querySelector('strong').textContent;
       dialog.querySelectorAll('[data-card]').forEach(card => {
         card.hidden = card.dataset.card !== button.dataset.document;
       });
-      dialog.querySelector('#identity-photo-form').hidden = button.dataset.document !== '0';
+      if (photoForm) photoForm.hidden = button.dataset.document !== '0';
       dialog.showModal();
     };
   });

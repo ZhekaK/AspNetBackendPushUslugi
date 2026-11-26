@@ -4,7 +4,8 @@ public enum UserType
 {
     Guest = 0,
     KeyUser = 1,
-    Admin = 2
+    Admin = 2,
+    Candidate = 3
 }
 
 public enum Sex

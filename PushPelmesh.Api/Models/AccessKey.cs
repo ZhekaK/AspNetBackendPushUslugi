@@ -16,6 +16,7 @@ public class AccessKey
     public string? GivePlace { get; set; }
     public Sex? Sex { get; set; }
     public bool IsActivated { get; set; }
+    public bool IsCandidate { get; set; }
 
     public User? ActivatedByUser { get; set; }
 

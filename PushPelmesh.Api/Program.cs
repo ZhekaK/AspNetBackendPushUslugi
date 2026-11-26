@@ -57,6 +57,9 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("xoxi-room-password", http => RateLimitPartition.GetFixedWindowLimiter(
         http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.AddPolicy("credential-login", http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 15, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 
 builder.Services.AddScoped<BirthdayCalendarService>();
@@ -120,6 +123,7 @@ if (app.Environment.IsDevelopment())
 
 app.MapPingEndpoints();
 app.MapAdminKeyEndpoints();
+app.MapCandidateEndpoints();
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
 app.MapIdentityPhotoEndpoints();

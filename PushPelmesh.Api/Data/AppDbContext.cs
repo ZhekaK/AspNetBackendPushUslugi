@@ -8,6 +8,7 @@ public class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
 
     public DbSet<AccessKey> AccessKeys => Set<AccessKey>();
+    public DbSet<CandidateProposal> CandidateProposals => Set<CandidateProposal>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<XoxiSave> XoxiSaves => Set<XoxiSave>();
     public DbSet<XoxiRoom> XoxiRooms => Set<XoxiRoom>();
@@ -41,6 +42,18 @@ public class AppDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<AccessKey>().HasIndex(x => new { x.Series, x.Number }).IsUnique();
+        modelBuilder.Entity<CandidateProposal>(entity =>
+        {
+            entity.Property(x => x.FullName).HasMaxLength(240);
+            entity.Property(x => x.Reason).HasMaxLength(2000);
+            entity.HasIndex(x => new { x.Approved, x.Id });
+            entity.HasOne(x => x.SubmittedBy).WithMany().HasForeignKey(x => x.SubmittedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<User>().WithMany().HasForeignKey(x => x.ReviewedByUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
 
         modelBuilder.Entity<IdentityPhoto>(entity =>
         {

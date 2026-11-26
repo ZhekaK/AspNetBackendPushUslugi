@@ -232,7 +232,7 @@
     <button class="secondary" type="button" onclick="clearAdminSettings()">Выйти</button>
   </div>
   <nav class="admin-nav" aria-label="Разделы администрирования">
-    <a href="#keys">Ключи</a><a href="#users">Пользователи</a>
+    <a href="#keys">Ключи</a><a href="#users">Пользователи</a><a href="#candidates">Кандидаты</a>
     <a href="#roles">Удостоверения</a><a href="#rewards">Награды</a><a href="#calendar">Календарь</a>
     <a href="#push">Уведомления</a><a href="#cleanup">Очистка гостей</a>
   </nav>
@@ -305,6 +305,28 @@
     <p class="small">Создает пользователей для всех неактивированных ключей доступа и привязывает уже существующих пользователей к их ключам.</p>
     <button class="secondary" onclick="activateAllAccessKeys()">Активировать все ключи</button>
     <div id="activateKeysStatus" class="status"></div>
+  </section>
+
+  <section id="candidates">
+    <h2>Кандидаты</h2>
+    <form id="candidateIssue">
+      <div class="grid three">
+        <label>Серия<input name="series" maxlength="16" required></label>
+        <label>Фамилия<input name="lastName" maxlength="80" required></label>
+        <label>Имя<input name="firstName" maxlength="80" required></label>
+        <label>Отчество<input name="middleName" maxlength="80"></label>
+        <label>Пол<select name="sex" required><option value="">Выберите</option><option value="0">Мужской</option><option value="1">Женский</option></select></label>
+        <label>Дата выдачи<input name="giveDate" type="date" required></label>
+        <label>Кем выдано<input name="givePlace" maxlength="160" required></label>
+      </div>
+      <div class="actions">
+        <button type="submit">Выдать удостоверение кандидата</button>
+        <button type="button" class="secondary" onclick="loadCandidates()">Обновить список</button>
+      </div>
+    </form>
+    <div id="candidateIssueStatus" class="status" role="status"></div>
+    <div id="candidatesStatus" class="status" role="status"></div>
+    <div id="candidatesTable"></div>
   </section>
 
   <section id="roles">
@@ -512,6 +534,7 @@
       document.getElementById("access").hidden = true;
       document.getElementById("adminInterface").hidden = false;
       document.querySelector(".admin-toolbar button").focus();
+      void loadCandidates();
     } catch {
       setText("authStatus", "Не удалось проверить ключ. Попробуйте снова.");
     } finally {
@@ -716,6 +739,51 @@
       setStatus("keysStatus", `Загружено ключей: ${keys.length}`);
     } catch (error) {
       setStatus("keysStatus", error.message, true);
+    }
+  }
+
+  async function loadCandidates() {
+    setStatus("candidatesStatus", "Загрузка кандидатов…");
+    try {
+      const candidates = await apiFetch("/api/admin/candidates");
+      document.getElementById("candidatesTable").innerHTML = candidates.length ? `
+        <div class="table-wrap"><table>
+          <thead><tr><th>Серия</th><th>Номер</th><th>ФИО</th><th>Пол</th>
+            <th>Дата выдачи</th><th>Кем выдано</th><th>Активировано</th></tr></thead>
+          <tbody>${candidates.map(candidate => `<tr>
+            <td>${escapeHtml(candidate.series)}</td><td>${escapeHtml(candidate.number)}</td>
+            <td>${escapeHtml(fullName(candidate))}</td><td>${escapeHtml(sexLabels[candidate.sex] || "")}</td>
+            <td>${escapeHtml(formatDateOnly(candidate.giveDate))}</td><td>${escapeHtml(candidate.givePlace)}</td>
+            <td>${candidate.isActivated ? "Да" : "Нет"}</td>
+          </tr>`).join("")}</tbody>
+        </table></div>` : "";
+      setStatus("candidatesStatus", candidates.length ? `Удостоверений кандидатов: ${candidates.length}` : "Удостоверений кандидатов пока нет.");
+    } catch (error) {
+      setStatus("candidatesStatus", error.message, true);
+    }
+  }
+
+  async function issueCandidate(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector('[type="submit"]');
+    if (button.disabled) return;
+    button.disabled = true;
+    setStatus("candidateIssueStatus", "Выпускаем удостоверение…");
+    const data = Object.fromEntries(new FormData(form));
+    try {
+      const result = await apiFetch("/api/admin/candidates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, sex: Number(data.sex) })
+      });
+      setStatus("candidateIssueStatus", `Удостоверение выдано. Серия ${result.series}, номер ${result.number}.`);
+      form.reset();
+      await loadCandidates();
+    } catch (error) {
+      setStatus("candidateIssueStatus", error.message, true);
+    } finally {
+      button.disabled = false;
     }
   }
 
@@ -1196,6 +1264,7 @@
     await Promise.allSettled([
       loadKeys(),
       loadUsers(),
+      loadCandidates(),
       loadRoles()
     ]);
   }
@@ -1216,12 +1285,14 @@
     if (key) void openAdmin(key);
     else setText("authStatus", "Введите ключ администратора.");
   });
+  document.getElementById("candidateIssue").addEventListener("submit", issueCandidate);
 
   window.addEventListener("load", () => {
     const savedKey = getAdminKey();
 
     const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Moscow" }).format(new Date());
     document.getElementById("roleStartDateInput").value = today;
+    document.getElementById("candidateIssue").elements.giveDate.defaultValue = today;
     document.getElementById("rewardDateInput").value = today;
     renderSystemPushRecipients();
 

@@ -61,6 +61,9 @@ namespace PushPelmesh.Api.Migrations
                     b.Property<bool>("IsActivated")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsCandidate")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Number")
                         .IsRequired()
                         .HasColumnType("text");
@@ -75,6 +78,9 @@ namespace PushPelmesh.Api.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ActivatedByUserId");
+
+                    b.HasIndex("Series", "Number")
+                        .IsUnique();
 
                     b.ToTable("AccessKeys");
                 });
@@ -170,6 +176,50 @@ namespace PushPelmesh.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("CalendarEventPushDeliveries");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.CandidateProposal", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool?>("Approved")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ReviewedByUserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SubmittedByUserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReviewedByUserId");
+
+                    b.HasIndex("SubmittedByUserId");
+
+                    b.HasIndex("Approved", "Id");
+
+                    b.ToTable("CandidateProposals");
                 });
 
             modelBuilder.Entity("PushPelmesh.Api.Models.ChatMessage", b =>
@@ -1095,6 +1145,22 @@ namespace PushPelmesh.Api.Migrations
                     b.Navigation("CalendarEvent");
 
                     b.Navigation("PushNotificationSubscription");
+                });
+
+            modelBuilder.Entity("PushPelmesh.Api.Models.CandidateProposal", b =>
+                {
+                    b.HasOne("PushPelmesh.Api.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("PushPelmesh.Api.Models.User", "SubmittedBy")
+                        .WithMany()
+                        .HasForeignKey("SubmittedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("SubmittedBy");
                 });
 
             modelBuilder.Entity("PushPelmesh.Api.Models.ChatMessage", b =>

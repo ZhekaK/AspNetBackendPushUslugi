@@ -49,7 +49,7 @@ public static class AuthEndpoints
 
             User user;
 
-            if (accessKey.IsActivated && accessKey.ActivatedByUser != null)
+            if (accessKey.ActivatedByUser != null)
             {
                 user = accessKey.ActivatedByUser;
                 user.LastLoginAt = DateTime.UtcNow;
@@ -60,7 +60,7 @@ public static class AuthEndpoints
                 {
                     UserSeries = accessKey.Series,
                     UserNumber = accessKey.Number,
-                    Type = UserType.KeyUser,
+                    Type = accessKey.IsCandidate ? UserType.Candidate : UserType.KeyUser,
                     FirstName = accessKey.AccountNameFirst,
                     MiddleName = accessKey.AccountNameMiddle,
                     LastName = accessKey.AccountNameLast,
@@ -74,11 +74,11 @@ public static class AuthEndpoints
 
                 db.Users.Add(user);
 
-                accessKey.IsActivated = true;
                 accessKey.ActivatedByUser = user;
-                accessKey.ActivatedAt = DateTime.UtcNow;
             }
 
+            accessKey.IsActivated = true;
+            accessKey.ActivatedAt ??= DateTime.UtcNow;
             await db.SaveChangesAsync();
 
             var token = jwtTokenGenerator.Generate(user);
@@ -111,7 +111,7 @@ public static class AuthEndpoints
                     number = accessKey.Number
                 }
             });
-        });
+        }).RequireRateLimiting("credential-login");
 
         app.MapPost("/api/auth/login-by-name", async (
             LoginByNameRequest request,

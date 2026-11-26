@@ -15,14 +15,14 @@ public static class RewardEndpoints
             var records = await GetRewardRecords(db, RewardKind.Championship);
             return Results.Ok(new { records });
         })
-        .RequireAuthorization();
+        .RequireAuthorization(policy => policy.RequireRole(nameof(UserType.KeyUser), nameof(UserType.Admin), nameof(UserType.Candidate)));
 
         app.MapGet("/api/rewards/government-awards", async (AppDbContext db) =>
         {
             var records = await GetRewardRecords(db, RewardKind.GovernmentAward);
             return Results.Ok(new { records });
         })
-        .RequireAuthorization();
+        .RequireAuthorization(policy => policy.RequireRole(nameof(UserType.KeyUser), nameof(UserType.Admin), nameof(UserType.Candidate)));
 
         app.MapPost("/api/admin/rewards", async (
             CreateRewardRecordRequest request,

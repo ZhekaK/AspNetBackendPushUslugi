@@ -20,7 +20,7 @@ public static class AdminKeyEndpoints
                 return Results.Unauthorized();
             }
 
-            var keys = await db.AccessKeys.ToListAsync();
+            var keys = await db.AccessKeys.Where(x => !x.IsCandidate).ToListAsync();
 
             return Results.Ok(keys);
         });
@@ -115,6 +115,7 @@ public static class AdminKeyEndpoints
             }
 
             var accessKeys = await db.AccessKeys
+                .Where(x => !x.IsCandidate)
                 .Include(x => x.ActivatedByUser)
                 .OrderBy(x => x.Id)
                 .ToListAsync();
